@@ -3,8 +3,8 @@ package io.openledger.account
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
-import io.openledger.account.AccountMode.AccountMode
-import io.openledger.account.states.{AccountState, CreditAccount}
+import io.openledger.account.AccountMode.{AccountMode, DEBIT, CREDIT}
+import io.openledger.account.states.{AccountState, CreditAccount, DebitAccount}
 import io.openledger.{JsonSerializable, LedgerError}
 
 import java.util.UUID
@@ -46,14 +46,19 @@ object Account {
 
   final case class Released(newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Overdraft(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case class Overdrawn(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Overpayment(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case class Overpaid(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+
+  final case class Overflow(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
   def apply(accountId: UUID, mode: AccountMode): Behavior[AccountCommand] =
     EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
       persistenceId = PersistenceId.ofUniqueId(accountId.toString),
-      emptyState = CreditAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0)),
+      emptyState = mode match {
+        case CREDIT => CreditAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
+        case DEBIT => DebitAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
+      },
       commandHandler = (state, cmd) => state.handleCommand(cmd),
       eventHandler = (state, evt) => state.handleEvent(evt))
 
