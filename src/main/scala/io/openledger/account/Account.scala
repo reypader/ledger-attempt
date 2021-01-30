@@ -15,7 +15,11 @@ object Account {
 
   final case class Debit(amountToDebit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
 
+  final case class DebitAdjust(amountToDebit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+
   final case class Credit(amountToCredit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+
+  final case class CreditAdjust(amountToCredit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
 
   final case class Hold(amountToHold: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
 
@@ -41,6 +45,10 @@ object Account {
   final case class Captured(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
   final case class Released(newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+
+  final case class Overdraft(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+
+  final case class Overpayment(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
   def apply(accountId: UUID, mode: AccountMode): Behavior[AccountCommand] =
     EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](

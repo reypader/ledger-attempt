@@ -13,6 +13,7 @@ case class CreditAccount(availableBalance: BigDecimal, currentBalance: BigDecima
       case Authorized(newAvailableBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
       case Captured(newAvailableBalance, newCurrentBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance, authorizedBalance = newAuthorizedBalance)
       case Released(newAvailableBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
+      case Overdraft(newAvailableBalance, newCurrentBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance, authorizedBalance = newAuthorizedBalance)
     }
   }
 
@@ -28,7 +29,24 @@ case class CreditAccount(availableBalance: BigDecimal, currentBalance: BigDecima
             .thenReply(replyTo)(_ => AdjustmentSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
         }
 
+      case DebitAdjust(amountToDebit, replyTo) =>
+        val newAvailableBalance = availableBalance - amountToDebit
+        val newCurrentBalance = currentBalance - amountToDebit
+        if (newAvailableBalance < 0 || newCurrentBalance < 0) {
+          Effect.persist(Overdraft(newAvailableBalance, newCurrentBalance, authorizedBalance))
+            .thenReply(replyTo)(_ => AdjustmentSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
+        } else {
+          Effect.persist(Debited(newAvailableBalance, newCurrentBalance))
+            .thenReply(replyTo)(_ => AdjustmentSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
+        }
+
       case Credit(amountToCredit, replyTo) =>
+        val newAvailableBalance = availableBalance + amountToCredit
+        val newCurrentBalance = currentBalance + amountToCredit
+        Effect.persist(Credited(newAvailableBalance, newCurrentBalance))
+          .thenReply(replyTo)(_ => AdjustmentSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
+
+      case CreditAdjust(amountToCredit, replyTo) =>
         val newAvailableBalance = availableBalance + amountToCredit
         val newCurrentBalance = currentBalance + amountToCredit
         Effect.persist(Credited(newAvailableBalance, newCurrentBalance))
@@ -51,7 +69,8 @@ case class CreditAccount(availableBalance: BigDecimal, currentBalance: BigDecima
         if (newAuthorizedBalance < 0) {
           Effect.none.thenReply(replyTo)(_ => AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE))
         } else if (newCurrentBalance < 0) {
-          Effect.none.thenReply(replyTo)(_ => AdjustmentFailed(LedgerError.OVERDRAFT))
+          Effect.persist(Overdraft(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
+            .thenReply(replyTo)(_ => AdjustmentSuccessful(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
         } else {
           Effect.persist(Captured(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
             .thenReply(replyTo)(_ => AdjustmentSuccessful(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))

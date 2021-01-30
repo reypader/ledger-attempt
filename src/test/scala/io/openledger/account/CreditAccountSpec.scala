@@ -44,7 +44,7 @@ class CreditAccountSpec
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
       }
 
-      "reject Capture(1,0) with OVERDRAFT" in {
+      "reject Capture(1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
         val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 0, _))
         result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
@@ -81,6 +81,26 @@ class CreditAccountSpec
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
+        result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
+      }
+
+      "accept DebitAdjust(1) and have -1/-1/0 balance with Overdraft" in {
+        given()
+        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](DebitAdjust(1, _))
+        result.reply shouldBe AdjustmentSuccessful(-1, -1, 0)
+        result.event shouldBe Overdraft(-1, -1, 0)
+        result.stateOfType[CreditAccount].availableBalance shouldBe -1
+        result.stateOfType[CreditAccount].currentBalance shouldBe -1
+        result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
+      }
+
+      "accept CreditAdjust(1) and have 1/1/0 balance" in {
+        given()
+        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](CreditAdjust(1, _))
+        result.reply shouldBe AdjustmentSuccessful(1, 1, 0)
+        result.event shouldBe Credited(1, 1)
+        result.stateOfType[CreditAccount].availableBalance shouldBe 1
+        result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
       }
     }
