@@ -23,7 +23,7 @@ object Account {
 
   sealed trait AdjustmentStatus extends AccountCommand
 
-  final case class AdjustmentSuccessful(availableBalance: BigDecimal, currentBalance: BigDecimal) extends AdjustmentStatus
+  final case class AdjustmentSuccessful(availableBalance: BigDecimal, currentBalance: BigDecimal, reservedBalance: BigDecimal) extends AdjustmentStatus
 
   final case class AdjustmentFailed(code: LedgerError.Value) extends AdjustmentStatus
 
@@ -32,16 +32,16 @@ object Account {
 
   final case class Debited(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
 
-  final case class DebitHeld(newAvailableBalance: BigDecimal) extends AccountEvent
+  final case class DebitHeld(newAvailableBalance: BigDecimal, newReservedBalance : BigDecimal) extends AccountEvent
 
   final case class Credited(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
 
-  final case class CreditHeld(newAvailableBalance: BigDecimal) extends AccountEvent
+  final case class CreditHeld(newAvailableBalance: BigDecimal, newReservedBalance:BigDecimal) extends AccountEvent
 
   def apply(accountId: UUID, mode: AccountMode): Behavior[AccountCommand] =
     EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
       persistenceId = PersistenceId.ofUniqueId(accountId.toString),
-      emptyState = Active(mode, BigDecimal(0), BigDecimal(0)),
+      emptyState = Active(mode, BigDecimal(0), BigDecimal(0), BigDecimal(0)),
       commandHandler = (state, cmd) => state.handleCommand(cmd),
       eventHandler = (state, evt) => state.handleEvent(evt))
 
