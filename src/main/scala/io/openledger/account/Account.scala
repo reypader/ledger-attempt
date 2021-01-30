@@ -22,47 +22,47 @@ object Account {
       eventHandler = (state, evt) => state.handleEvent(evt))
 
   sealed trait AccountingStatus extends JsonSerializable{
-    def entryId: String
+    def transactionId: String
   }
 
   sealed trait AccountCommand extends JsonSerializable {
-    def entryId: String
+    def transactionId: String
   }
 
   sealed trait AccountEvent extends JsonSerializable{
-    def entryId: String
+    def transactionId: String
   }
 
-  final case class Debit(entryId: String, amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class Debit(transactionId: String, amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class DebitAdjust(entryId: String, amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class DebitAdjust(transactionId: String, amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Credit(entryId: String, amountToCredit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class Credit(transactionId: String, amountToCredit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class CreditAdjust(entryId: String, amountToCredit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class CreditAdjust(transactionId: String, amountToCredit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Hold(entryId: String, amountToHold: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class Hold(transactionId: String, amountToHold: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Capture(entryId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class Capture(transactionId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Release(entryId: String, amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
+  final case class Release(transactionId: String, amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class AccountingSuccessful(entryId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
+  final case class AccountingSuccessful(transactionId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
 
-  final case class AccountingFailed(entryId: String, code: LedgerError.Value) extends AccountingStatus
+  final case class AccountingFailed(transactionId: String, code: LedgerError.Value) extends AccountingStatus
 
-  final case class Debited(entryId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
+  final case class Debited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
 
-  final case class Credited(entryId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
+  final case class Credited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
 
-  final case class Authorized(entryId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case class Authorized(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Captured(entryId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case class Captured(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Released(entryId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case class Released(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Overdrawn(entryId: String) extends AccountEvent
+  final case class Overdrawn(transactionId: String) extends AccountEvent
 
-  final case class Overpaid(entryId: String) extends AccountEvent
+  final case class Overpaid(transactionId: String) extends AccountEvent
 
 }

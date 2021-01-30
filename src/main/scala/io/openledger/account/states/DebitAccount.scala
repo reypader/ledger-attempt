@@ -19,91 +19,91 @@ case class DebitAccount(availableBalance: BigDecimal, currentBalance: BigDecimal
 
   override def handleCommand(command: Account.AccountCommand): ReplyEffect[Account.AccountEvent, AccountState] = {
     command match {
-      case Debit(entryId, amountToDebit, replyTo) =>
+      case Debit(transactionId, amountToDebit, replyTo) =>
         val newAvailableBalance = availableBalance + amountToDebit
         val newCurrentBalance = currentBalance + amountToDebit
-        Effect.persist(Debited(entryId, newAvailableBalance, newCurrentBalance))
-          .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, newCurrentBalance, authorizedBalance))
+        Effect.persist(Debited(transactionId, newAvailableBalance, newCurrentBalance))
+          .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, newCurrentBalance, authorizedBalance))
 
-      case DebitAdjust(entryId, amountToDebit, replyTo) =>
+      case DebitAdjust(transactionId, amountToDebit, replyTo) =>
         val newAvailableBalance = availableBalance + amountToDebit
         val newCurrentBalance = currentBalance + amountToDebit
-        Effect.persist(Debited(entryId, newAvailableBalance, newCurrentBalance))
-          .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, newCurrentBalance, authorizedBalance))
+        Effect.persist(Debited(transactionId, newAvailableBalance, newCurrentBalance))
+          .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, newCurrentBalance, authorizedBalance))
 
-      case Credit(entryId, amountToCredit, replyTo) =>
+      case Credit(transactionId, amountToCredit, replyTo) =>
         val newAvailableBalance = availableBalance - amountToCredit
         val newCurrentBalance = currentBalance - amountToCredit
         if (newAvailableBalance < 0) {
-          Effect.none.thenReply(replyTo)(_ => AccountingFailed(entryId, LedgerError.INSUFFICIENT_BALANCE))
+          Effect.none.thenReply(replyTo)(_ => AccountingFailed(transactionId, LedgerError.INSUFFICIENT_BALANCE))
         } else {
           val events = if (newCurrentBalance < 0) {
             Seq(
-              Credited(entryId, newAvailableBalance, newCurrentBalance),
-              Overpaid(entryId)
+              Credited(transactionId, newAvailableBalance, newCurrentBalance),
+              Overpaid(transactionId)
             )
           } else {
-            Seq(Credited(entryId, newAvailableBalance, newCurrentBalance))
+            Seq(Credited(transactionId, newAvailableBalance, newCurrentBalance))
           }
           Effect.persist(events)
-            .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, newCurrentBalance, authorizedBalance))
+            .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, newCurrentBalance, authorizedBalance))
         }
 
-      case CreditAdjust(entryId, amountToCredit, replyTo) =>
+      case CreditAdjust(transactionId, amountToCredit, replyTo) =>
         val newAvailableBalance = availableBalance - amountToCredit
         val newCurrentBalance = currentBalance - amountToCredit
         val events = if (newAvailableBalance < 0 || newCurrentBalance < 0) {
           Seq(
-            Credited(entryId, newAvailableBalance, newCurrentBalance),
-            Overpaid(entryId)
+            Credited(transactionId, newAvailableBalance, newCurrentBalance),
+            Overpaid(transactionId)
           )
         } else {
-          Seq(Credited(entryId, newAvailableBalance, newCurrentBalance))
+          Seq(Credited(transactionId, newAvailableBalance, newCurrentBalance))
         }
         Effect.persist(events)
-          .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, newCurrentBalance, authorizedBalance))
+          .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, newCurrentBalance, authorizedBalance))
 
-      case Hold(entryId, amountToHold, replyTo) =>
+      case Hold(transactionId, amountToHold, replyTo) =>
         val newAvailableBalance = availableBalance + amountToHold
         val newAuthorizedBalance = authorizedBalance + amountToHold
-        Effect.persist(Authorized(entryId, newAvailableBalance, newAuthorizedBalance))
-          .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, currentBalance, newAuthorizedBalance))
+        Effect.persist(Authorized(transactionId, newAvailableBalance, newAuthorizedBalance))
+          .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, currentBalance, newAuthorizedBalance))
 
-      case Capture(entryId, amountToCapture, amountToRelease, replyTo) =>
+      case Capture(transactionId, amountToCapture, amountToRelease, replyTo) =>
         val newAuthorizedBalance = authorizedBalance - amountToCapture - amountToRelease
         val newCurrentBalance = currentBalance + amountToCapture
         val newAvailableBalance = availableBalance - amountToRelease
         if (newAuthorizedBalance < 0) {
-          Effect.none.thenReply(replyTo)(_ => AccountingFailed(entryId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE))
+          Effect.none.thenReply(replyTo)(_ => AccountingFailed(transactionId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE))
         } else {
           val events = if (newAvailableBalance < 0) {
             Seq(
-              Captured(entryId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance),
-              Overpaid(entryId)
+              Captured(transactionId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance),
+              Overpaid(transactionId)
             )
           } else {
-            Seq(Captured(entryId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
+            Seq(Captured(transactionId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
           }
           Effect.persist(events)
-            .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
+            .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
         }
 
-      case Release(entryId, amountToRelease, replyTo) =>
+      case Release(transactionId, amountToRelease, replyTo) =>
         val newAuthorizedBalance = authorizedBalance - amountToRelease
         val newAvailableBalance = availableBalance - amountToRelease
         if (newAuthorizedBalance < 0) {
-          Effect.none.thenReply(replyTo)(_ => AccountingFailed(entryId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE))
+          Effect.none.thenReply(replyTo)(_ => AccountingFailed(transactionId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE))
         } else {
           val events = if (newAvailableBalance < 0) {
             Seq(
-              Released(entryId, newAvailableBalance, newAuthorizedBalance),
-              Overpaid(entryId)
+              Released(transactionId, newAvailableBalance, newAuthorizedBalance),
+              Overpaid(transactionId)
             )
           } else {
-            Seq(Released(entryId, newAvailableBalance, newAuthorizedBalance))
+            Seq(Released(transactionId, newAvailableBalance, newAuthorizedBalance))
           }
           Effect.persist(events)
-            .thenReply(replyTo)(_ => AccountingSuccessful(entryId, newAvailableBalance, currentBalance, newAuthorizedBalance))
+            .thenReply(replyTo)(_ => AccountingSuccessful(transactionId, newAvailableBalance, currentBalance, newAuthorizedBalance))
         }
 
     }
