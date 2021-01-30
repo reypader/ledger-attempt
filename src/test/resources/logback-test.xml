@@ -1,7 +1,7 @@
 <configuration>
-    <appender name="CapturingAppender" class="akka.actor.testkit.typed.internal.CapturingAppender" />
+    <appender name="CapturingAppender" class="akka.actor.testkit.typed.internal.CapturingAppender"/>
 
-    <logger name="akka.actor.testkit.typed.internal.CapturingAppenderDelegate" >
+    <logger name="akka.actor.testkit.typed.internal.CapturingAppenderDelegate">
         <appender-ref ref="STDOUT"/>
     </logger>
 

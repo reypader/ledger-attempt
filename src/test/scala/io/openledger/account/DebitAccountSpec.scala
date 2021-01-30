@@ -48,7 +48,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Debit(1, _))
         result.reply shouldBe AccountingSuccessful(1, 1, 0)
-        result.event shouldBe Debited(1, 1)
+        result.events shouldBe Seq(Debited(1, 1))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -58,7 +58,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
         result.reply shouldBe AccountingSuccessful(1, 0, 1)
-        result.event shouldBe Authorized(1, 1)
+        result.events shouldBe Seq(Authorized(1, 1))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 0
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
@@ -88,7 +88,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](CreditAdjust(1, _))
         result.reply shouldBe AccountingSuccessful(-1, -1, 0)
-        result.event shouldBe Overpaid(-1, -1, 0)
+        result.events shouldBe Seq(Credited(-1, -1), Overpaid)
         result.stateOfType[DebitAccount].availableBalance shouldBe -1
         result.stateOfType[DebitAccount].currentBalance shouldBe -1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -98,7 +98,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](DebitAdjust(1, _))
         result.reply shouldBe AccountingSuccessful(1, 1, 0)
-        result.event shouldBe Debited(1, 1)
+        result.events shouldBe Seq(Debited(1, 1))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -115,7 +115,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
         result.reply shouldBe AccountingSuccessful(0, 0, 0)
-        result.event shouldBe Credited(0, 0)
+        result.events shouldBe Seq(Credited(0, 0))
         result.stateOfType[DebitAccount].availableBalance shouldBe 0
         result.stateOfType[DebitAccount].currentBalance shouldBe 0
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -125,7 +125,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Debit(1, _))
         result.reply shouldBe AccountingSuccessful(2, 2, 0)
-        result.event shouldBe Debited(2, 2)
+        result.events shouldBe Seq(Debited(2, 2))
         result.stateOfType[DebitAccount].availableBalance shouldBe 2
         result.stateOfType[DebitAccount].currentBalance shouldBe 2
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -135,7 +135,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
         result.reply shouldBe AccountingSuccessful(2, 1, 1)
-        result.event shouldBe Authorized(2, 1)
+        result.events shouldBe Seq(Authorized(2, 1))
         result.stateOfType[DebitAccount].availableBalance shouldBe 2
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
@@ -165,7 +165,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](CreditAdjust(1, _))
         result.reply shouldBe AccountingSuccessful(0, 0, 0)
-        result.event shouldBe Credited(0, 0)
+        result.events shouldBe Seq(Credited(0, 0))
         result.stateOfType[DebitAccount].availableBalance shouldBe 0
         result.stateOfType[DebitAccount].currentBalance shouldBe 0
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -175,7 +175,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](DebitAdjust(1, _))
         result.reply shouldBe AccountingSuccessful(2, 2, 0)
-        result.event shouldBe Debited(2, 2)
+        result.events shouldBe Seq(Debited(2, 2))
         result.stateOfType[DebitAccount].availableBalance shouldBe 2
         result.stateOfType[DebitAccount].currentBalance shouldBe 2
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -193,7 +193,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
         result.reply shouldBe AccountingSuccessful(0, -1, 1)
-        result.event shouldBe Overpaid(0, -1, 1)
+        result.events shouldBe Seq(Credited(0, -1), Overpaid)
         result.stateOfType[DebitAccount].availableBalance shouldBe 0
         result.stateOfType[DebitAccount].currentBalance shouldBe -1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
@@ -203,7 +203,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Debit(1, _))
         result.reply shouldBe AccountingSuccessful(2, 1, 1)
-        result.event shouldBe Debited(2, 1)
+        result.events shouldBe Seq(Debited(2, 1))
         result.stateOfType[DebitAccount].availableBalance shouldBe 2
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
@@ -213,7 +213,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
         result.reply shouldBe AccountingSuccessful(2, 0, 2)
-        result.event shouldBe Authorized(2, 2)
+        result.events shouldBe Seq(Authorized(2, 2))
         result.stateOfType[DebitAccount].availableBalance shouldBe 2
         result.stateOfType[DebitAccount].currentBalance shouldBe 0
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 2
@@ -223,7 +223,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 0, _))
         result.reply shouldBe AccountingSuccessful(1, 1, 0)
-        result.event shouldBe Captured(1, 1, 0)
+        result.events shouldBe Seq(Captured(1, 1, 0))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -253,7 +253,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Release(1, _))
         result.reply shouldBe AccountingSuccessful(0, 0, 0)
-        result.event shouldBe Released(0, 0)
+        result.events shouldBe Seq(Released(0, 0))
         result.stateOfType[DebitAccount].availableBalance shouldBe 0
         result.stateOfType[DebitAccount].currentBalance shouldBe 0
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -281,7 +281,7 @@ class DebitAccountSpec
         given()
         val result = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 1, _))
         result.reply shouldBe AccountingSuccessful(1, 1, 0)
-        result.event shouldBe Captured(1, 1, 0)
+        result.events shouldBe Seq(Captured(1, 1, 0))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -291,14 +291,14 @@ class DebitAccountSpec
         given()
         val result1 = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
         result1.reply shouldBe AccountingSuccessful(1, -1, 2)
-        result1.event shouldBe Overpaid(1, -1, 2)
+        result1.events shouldBe Seq(Credited(1, -1), Overpaid)
         result1.stateOfType[DebitAccount].availableBalance shouldBe 1
         result1.stateOfType[DebitAccount].currentBalance shouldBe -1
         result1.stateOfType[DebitAccount].authorizedBalance shouldBe 2
 
         val result2 = eventSourcedTestKit.runCommand[AccountingStatus](Capture(2, 0, _))
         result2.reply shouldBe AccountingSuccessful(1, 1, 0)
-        result2.event shouldBe Captured(1, 1, 0)
+        result2.events shouldBe Seq(Captured(1, 1, 0))
         result2.stateOfType[DebitAccount].availableBalance shouldBe 1
         result2.stateOfType[DebitAccount].currentBalance shouldBe 1
         result2.stateOfType[DebitAccount].authorizedBalance shouldBe 0
@@ -308,19 +308,18 @@ class DebitAccountSpec
         given()
         val result1 = eventSourcedTestKit.runCommand[AccountingStatus](CreditAdjust(2, _))
         result1.reply shouldBe AccountingSuccessful(0, -2, 2)
-        result1.event shouldBe Overpaid(0, -2, 2)
+        result1.events shouldBe Seq(Credited(0, -2), Overpaid)
         result1.stateOfType[DebitAccount].availableBalance shouldBe 0
         result1.stateOfType[DebitAccount].currentBalance shouldBe -2
         result1.stateOfType[DebitAccount].authorizedBalance shouldBe 2
 
         val result2 = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 1, _))
         result2.reply shouldBe AccountingSuccessful(-1, -1, 0)
-        result2.event shouldBe Overpaid(-1, -1, 0)
+        result2.events shouldBe Seq(Captured(-1, -1, 0), Overpaid)
         result2.stateOfType[DebitAccount].availableBalance shouldBe -1
         result2.stateOfType[DebitAccount].currentBalance shouldBe -1
         result2.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
-
     }
   }
 }

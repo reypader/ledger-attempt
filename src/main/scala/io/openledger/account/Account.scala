@@ -3,7 +3,7 @@ package io.openledger.account
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
-import io.openledger.account.AccountMode.{AccountMode, DEBIT, CREDIT}
+import io.openledger.account.AccountMode.{AccountMode, CREDIT, DEBIT}
 import io.openledger.account.states.{AccountState, CreditAccount, DebitAccount}
 import io.openledger.{JsonSerializable, LedgerError}
 
@@ -11,7 +11,21 @@ import java.util.UUID
 
 object Account {
 
+  def apply(accountId: UUID, mode: AccountMode): Behavior[AccountCommand] =
+    EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
+      persistenceId = PersistenceId.ofUniqueId(accountId.toString),
+      emptyState = mode match {
+        case CREDIT => CreditAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
+        case DEBIT => DebitAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
+      },
+      commandHandler = (state, cmd) => state.handleCommand(cmd),
+      eventHandler = (state, evt) => state.handleEvent(evt))
+
   sealed trait AccountCommand extends JsonSerializable
+
+  sealed trait AccountingStatus extends AccountCommand
+
+  sealed trait AccountEvent extends JsonSerializable
 
   final case class Debit(amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
@@ -27,14 +41,9 @@ object Account {
 
   final case class Release(amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  sealed trait AccountingStatus extends AccountCommand
-
   final case class AccountingSuccessful(availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
 
   final case class AccountingFailed(code: LedgerError.Value) extends AccountingStatus
-
-
-  sealed trait AccountEvent extends JsonSerializable
 
   final case class Debited(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountEvent
 
@@ -46,20 +55,8 @@ object Account {
 
   final case class Released(newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Overdrawn(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case object Overdrawn extends AccountEvent
 
-  final case class Overpaid(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
-
-  final case class Overflow(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
-
-  def apply(accountId: UUID, mode: AccountMode): Behavior[AccountCommand] =
-    EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
-      persistenceId = PersistenceId.ofUniqueId(accountId.toString),
-      emptyState = mode match {
-        case CREDIT => CreditAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
-        case DEBIT => DebitAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
-      },
-      commandHandler = (state, cmd) => state.handleCommand(cmd),
-      eventHandler = (state, evt) => state.handleEvent(evt))
+  final case object Overpaid extends AccountEvent
 
 }

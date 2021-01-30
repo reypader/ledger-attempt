@@ -13,7 +13,7 @@ case class CreditAccount(availableBalance: BigDecimal, currentBalance: BigDecima
       case Authorized(newAvailableBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
       case Captured(newAvailableBalance, newCurrentBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance, authorizedBalance = newAuthorizedBalance)
       case Released(newAvailableBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
-      case Overdrawn(newAvailableBalance, newCurrentBalance, newAuthorizedBalance) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance, authorizedBalance = newAuthorizedBalance)
+      case Overdrawn => this
     }
   }
 
@@ -24,24 +24,32 @@ case class CreditAccount(availableBalance: BigDecimal, currentBalance: BigDecima
         val newCurrentBalance = currentBalance - amountToDebit
         if (newAvailableBalance < 0) {
           Effect.none.thenReply(replyTo)(_ => AccountingFailed(LedgerError.INSUFFICIENT_BALANCE))
-        } else if (newCurrentBalance < 0) {
-          Effect.persist(Overdrawn(newAvailableBalance, newCurrentBalance, authorizedBalance))
-            .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
         } else {
-          Effect.persist(Debited(newAvailableBalance, newCurrentBalance))
+          val events = if (newCurrentBalance < 0) {
+            Seq(
+              Debited(newAvailableBalance, newCurrentBalance),
+              Overdrawn
+            )
+          } else {
+            Seq(Debited(newAvailableBalance, newCurrentBalance))
+          }
+          Effect.persist(events)
             .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
         }
 
       case DebitAdjust(amountToDebit, replyTo) =>
         val newAvailableBalance = availableBalance - amountToDebit
         val newCurrentBalance = currentBalance - amountToDebit
-        if (newAvailableBalance < 0 || newCurrentBalance < 0) {
-          Effect.persist(Overdrawn(newAvailableBalance, newCurrentBalance, authorizedBalance))
-            .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
+        val events = if (newAvailableBalance < 0 || newCurrentBalance < 0) {
+          Seq(
+            Debited(newAvailableBalance, newCurrentBalance),
+            Overdrawn
+          )
         } else {
-          Effect.persist(Debited(newAvailableBalance, newCurrentBalance))
-            .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
+          Seq(Debited(newAvailableBalance, newCurrentBalance))
         }
+        Effect.persist(events)
+          .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, authorizedBalance))
 
       case Credit(amountToCredit, replyTo) =>
         val newAvailableBalance = availableBalance + amountToCredit
@@ -71,11 +79,16 @@ case class CreditAccount(availableBalance: BigDecimal, currentBalance: BigDecima
         val newAvailableBalance = availableBalance + amountToRelease
         if (newAuthorizedBalance < 0) {
           Effect.none.thenReply(replyTo)(_ => AccountingFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE))
-        } else if (newCurrentBalance < 0) {
-          Effect.persist(Overdrawn(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
-            .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
         } else {
-          Effect.persist(Captured(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
+          val events = if (newCurrentBalance < 0) {
+            Seq(
+              Captured(newAvailableBalance, newCurrentBalance, newAuthorizedBalance),
+              Overdrawn
+            )
+          } else {
+            Seq(Captured(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
+          }
+          Effect.persist(events)
             .thenReply(replyTo)(_ => AccountingSuccessful(newAvailableBalance, newCurrentBalance, newAuthorizedBalance))
         }
 
