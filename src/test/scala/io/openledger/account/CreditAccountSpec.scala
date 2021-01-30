@@ -47,7 +47,7 @@ class CreditAccountSpec
       "reject Capture(1,0) with OVERDRAFT" in {
         given()
         val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 0, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_FUNDS)
+        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -71,6 +71,16 @@ class CreditAccountSpec
         result.event shouldBe Credited(1, 1)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
+        result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
+      }
+
+      "reject Release(1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+        given()
+        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Release(1, _))
+        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
+        result.hasNoEvents shouldBe true
+        result.stateOfType[CreditAccount].availableBalance shouldBe 0
+        result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
       }
     }
@@ -206,6 +216,26 @@ class CreditAccountSpec
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
+      }
+
+      "accept Release(1) and have 1/2/1 balance" in {
+        given()
+        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Release(1, _))
+        result.reply shouldBe AdjustmentSuccessful(1, 2, 1)
+        result.event shouldBe Released(1, 1)
+        result.stateOfType[CreditAccount].availableBalance shouldBe 1
+        result.stateOfType[CreditAccount].currentBalance shouldBe 2
+        result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
+      }
+
+      "reject Capture(1,2) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+        given()
+        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 2, _))
+        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
+        result.hasNoEvents shouldBe true
+        result.stateOfType[CreditAccount].availableBalance shouldBe 0
+        result.stateOfType[CreditAccount].currentBalance shouldBe 2
+        result.stateOfType[CreditAccount].authorizedBalance shouldBe 2
       }
     }
   }

@@ -19,7 +19,9 @@ object Account {
 
   final case class Hold(amountToHold: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
 
-  final case class Capture(amountToCapture: BigDecimal, amountToRelease:BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class Capture(amountToCapture: BigDecimal, amountToRelease: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+
+  final case class Release(amountToRelease: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
 
   sealed trait AdjustmentStatus extends AccountCommand
 
@@ -36,7 +38,9 @@ object Account {
 
   final case class Authorized(newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
-  final case class Captured(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal,newAuthorizedBalance: BigDecimal) extends AccountEvent
+  final case class Captured(newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
+
+  final case class Released(newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountEvent
 
   def apply(accountId: UUID, mode: AccountMode): Behavior[AccountCommand] =
     EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
