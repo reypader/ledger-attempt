@@ -36,8 +36,8 @@ class CreditAccountSpec
 
       "reject Debit(1) with INSUFFICIENT_FUNDS" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Debit(1, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_FUNDS)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Debit(1, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_FUNDS)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -46,8 +46,8 @@ class CreditAccountSpec
 
       "reject Capture(1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 0, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 0, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -56,8 +56,8 @@ class CreditAccountSpec
 
       "reject Hold(1) with INSUFFICIENT_FUNDS" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(1, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_FUNDS)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_FUNDS)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -66,8 +66,8 @@ class CreditAccountSpec
 
       "accept Credit(1) and have 1/1/0 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(1, _))
-        result.reply shouldBe AdjustmentSuccessful(1, 1, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
+        result.reply shouldBe AccountingSuccessful(1, 1, 0)
         result.event shouldBe Credited(1, 1)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -76,8 +76,8 @@ class CreditAccountSpec
 
       "reject Release(1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Release(1, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Release(1, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -86,8 +86,8 @@ class CreditAccountSpec
 
       "accept DebitAdjust(1) and have -1/-1/0 balance with Overdraft" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](DebitAdjust(1, _))
-        result.reply shouldBe AdjustmentSuccessful(-1, -1, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](DebitAdjust(1, _))
+        result.reply shouldBe AccountingSuccessful(-1, -1, 0)
         result.event shouldBe Overdraft(-1, -1, 0)
         result.stateOfType[CreditAccount].availableBalance shouldBe -1
         result.stateOfType[CreditAccount].currentBalance shouldBe -1
@@ -96,8 +96,8 @@ class CreditAccountSpec
 
       "accept CreditAdjust(1) and have 1/1/0 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](CreditAdjust(1, _))
-        result.reply shouldBe AdjustmentSuccessful(1, 1, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](CreditAdjust(1, _))
+        result.reply shouldBe AccountingSuccessful(1, 1, 0)
         result.event shouldBe Credited(1, 1)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -107,14 +107,14 @@ class CreditAccountSpec
 
     "at initially 1/1/0 balance" must {
       def given(): Unit = {
-        val given = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(1, _))
-        given.reply shouldBe AdjustmentSuccessful(1, 1, 0)
+        val given = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
+        given.reply shouldBe AccountingSuccessful(1, 1, 0)
       }
 
       "accept Debit(1) and have 0/0/0 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Debit(1, _))
-        result.reply shouldBe AdjustmentSuccessful(0, 0, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Debit(1, _))
+        result.reply shouldBe AccountingSuccessful(0, 0, 0)
         result.event shouldBe Debited(0, 0)
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -123,8 +123,8 @@ class CreditAccountSpec
 
       "accept Hold(1) and have 0/1/1 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(1, _))
-        result.reply shouldBe AdjustmentSuccessful(0, 1, 1)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
+        result.reply shouldBe AccountingSuccessful(0, 1, 1)
         result.event shouldBe Authorized(0, 1)
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -133,8 +133,8 @@ class CreditAccountSpec
 
       "reject Hold(2) with INSUFFICIENT_FUNDS" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(2, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_FUNDS)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(2, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_FUNDS)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -143,8 +143,8 @@ class CreditAccountSpec
 
       "accept Credit(1) and have 2/2/0 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(1, _))
-        result.reply shouldBe AdjustmentSuccessful(2, 2, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
+        result.reply shouldBe AccountingSuccessful(2, 2, 0)
         result.event shouldBe Credited(2, 2)
         result.stateOfType[CreditAccount].availableBalance shouldBe 2
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
@@ -154,17 +154,17 @@ class CreditAccountSpec
 
     "at initially 0/1/1 balance" must {
       def given(): Unit = {
-        val given1 = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(1, _))
-        given1.reply shouldBe AdjustmentSuccessful(1, 1, 0)
+        val given1 = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
+        given1.reply shouldBe AccountingSuccessful(1, 1, 0)
 
-        val given2 = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(1, _))
-        given2.reply shouldBe AdjustmentSuccessful(0, 1, 1)
+        val given2 = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
+        given2.reply shouldBe AccountingSuccessful(0, 1, 1)
       }
 
       "reject Debit(1) with INSUFFICIENT_FUNDS" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Debit(1, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_FUNDS)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Debit(1, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_FUNDS)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -173,8 +173,8 @@ class CreditAccountSpec
 
       "accept Capture(1,0) and have 0/0/0 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 0, _))
-        result.reply shouldBe AdjustmentSuccessful(0, 0, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 0, _))
+        result.reply shouldBe AccountingSuccessful(0, 0, 0)
         result.event shouldBe Captured(0, 0, 0)
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -183,8 +183,8 @@ class CreditAccountSpec
 
       "reject Hold(1) with INSUFFICIENT_FUNDS" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(1, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_FUNDS)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_FUNDS)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -193,8 +193,8 @@ class CreditAccountSpec
 
       "accept Credit(1) and have 1/2/1 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(1, _))
-        result.reply shouldBe AdjustmentSuccessful(1, 2, 1)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Credit(1, _))
+        result.reply shouldBe AccountingSuccessful(1, 2, 1)
         result.event shouldBe Credited(1, 2)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
@@ -204,14 +204,14 @@ class CreditAccountSpec
 
     "at initially 2/2/0 balance" must {
       def given(): Unit = {
-        val given = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(2, _))
-        given.reply shouldBe AdjustmentSuccessful(2, 2, 0)
+        val given = eventSourcedTestKit.runCommand[AccountingStatus](Credit(2, _))
+        given.reply shouldBe AccountingSuccessful(2, 2, 0)
       }
 
       "accept Hold(1) and have 1/2/1 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(1, _))
-        result.reply shouldBe AdjustmentSuccessful(1, 2, 1)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Hold(1, _))
+        result.reply shouldBe AccountingSuccessful(1, 2, 1)
         result.event shouldBe Authorized(1, 1)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
@@ -221,17 +221,17 @@ class CreditAccountSpec
 
     "at initially 0/2/2 balance" must {
       def given(): Unit = {
-        val given1 = eventSourcedTestKit.runCommand[AdjustmentStatus](Credit(2, _))
-        given1.reply shouldBe AdjustmentSuccessful(2, 2, 0)
+        val given1 = eventSourcedTestKit.runCommand[AccountingStatus](Credit(2, _))
+        given1.reply shouldBe AccountingSuccessful(2, 2, 0)
 
-        val given2 = eventSourcedTestKit.runCommand[AdjustmentStatus](Hold(2, _))
-        given2.reply shouldBe AdjustmentSuccessful(0, 2, 2)
+        val given2 = eventSourcedTestKit.runCommand[AccountingStatus](Hold(2, _))
+        given2.reply shouldBe AccountingSuccessful(0, 2, 2)
       }
 
       "accept Capture(1,1) and have 1/1/0 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 1, _))
-        result.reply shouldBe AdjustmentSuccessful(1, 1, 0)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 1, _))
+        result.reply shouldBe AccountingSuccessful(1, 1, 0)
         result.event shouldBe Captured(1, 1, 0)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -240,8 +240,8 @@ class CreditAccountSpec
 
       "accept Release(1) and have 1/2/1 balance" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Release(1, _))
-        result.reply shouldBe AdjustmentSuccessful(1, 2, 1)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Release(1, _))
+        result.reply shouldBe AccountingSuccessful(1, 2, 1)
         result.event shouldBe Released(1, 1)
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
@@ -250,8 +250,8 @@ class CreditAccountSpec
 
       "reject Capture(1,2) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val result = eventSourcedTestKit.runCommand[AdjustmentStatus](Capture(1, 2, _))
-        result.reply shouldBe AdjustmentFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
+        val result = eventSourcedTestKit.runCommand[AccountingStatus](Capture(1, 2, _))
+        result.reply shouldBe AccountingFailed(LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 2

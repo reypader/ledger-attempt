@@ -13,25 +13,25 @@ object Account {
 
   sealed trait AccountCommand extends JsonSerializable
 
-  final case class Debit(amountToDebit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class Debit(amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class DebitAdjust(amountToDebit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class DebitAdjust(amountToDebit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Credit(amountToCredit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class Credit(amountToCredit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class CreditAdjust(amountToCredit: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class CreditAdjust(amountToCredit: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Hold(amountToHold: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class Hold(amountToHold: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Capture(amountToCapture: BigDecimal, amountToRelease: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class Capture(amountToCapture: BigDecimal, amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  final case class Release(amountToRelease: BigDecimal, replyTo: ActorRef[AdjustmentStatus]) extends AccountCommand
+  final case class Release(amountToRelease: BigDecimal, replyTo: ActorRef[AccountingStatus]) extends AccountCommand
 
-  sealed trait AdjustmentStatus extends AccountCommand
+  sealed trait AccountingStatus extends AccountCommand
 
-  final case class AdjustmentSuccessful(availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AdjustmentStatus
+  final case class AccountingSuccessful(availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
 
-  final case class AdjustmentFailed(code: LedgerError.Value) extends AdjustmentStatus
+  final case class AccountingFailed(code: LedgerError.Value) extends AccountingStatus
 
 
   sealed trait AccountEvent extends JsonSerializable
