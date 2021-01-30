@@ -1,11 +1,12 @@
 package io.openledger.account.states
 
-import akka.persistence.typed.scaladsl.ReplyEffect
+import akka.actor.typed.scaladsl.ActorContext
+import akka.persistence.typed.scaladsl.Effect
 import io.openledger.JsonSerializable
-import io.openledger.account.Account.{AccountCommand, AccountEvent}
+import io.openledger.account.Account.{AccountCommand, AccountEvent, TransactionMessenger}
 
 trait AccountState extends JsonSerializable {
-  def handleEvent(event: AccountEvent): AccountState
+  def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState
 
-  def handleCommand(command: AccountCommand): ReplyEffect[AccountEvent, AccountState]
+  def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger): Effect[AccountEvent, AccountState]
 }
