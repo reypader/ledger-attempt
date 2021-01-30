@@ -16,7 +16,7 @@ object Account {
     Behaviors.setup { implicit actorContext: ActorContext[AccountCommand] =>
       EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
         persistenceId = PersistenceId.ofUniqueId(accountId),
-        emptyState = Ready(),
+        emptyState = Ready(accountId),
         commandHandler = (state, cmd) => state.handleCommand(cmd),
         eventHandler = (state, evt) => state.handleEvent(evt))
     }
@@ -34,7 +34,7 @@ object Account {
   }
 
   sealed trait AccountingStatus extends JsonSerializable {
-    def transactionId: String
+    def accountId: String
   }
 
   final case class Open(mode: AccountMode) extends AccountCommand
@@ -53,9 +53,9 @@ object Account {
 
   final case class Release(transactionId: String, amountToRelease: BigDecimal) extends AccountingCommand
 
-  final case class AccountingSuccessful(transactionId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
+  final case class AccountingSuccessful(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
 
-  final case class AccountingFailed(transactionId: String, code: LedgerError.Value) extends AccountingStatus
+  final case class AccountingFailed(accountId: String, code: LedgerError.Value) extends AccountingStatus
 
   final case class DebitAccountOpened() extends AccountEvent
 

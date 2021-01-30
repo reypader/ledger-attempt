@@ -26,8 +26,9 @@ class CreditAccountSpec
     with MockFactory {
 
   private val stubMessenger = mockFunction[String, AccountingStatus, Unit]
-  private val eventSourcedTestKit = EventSourcedBehaviorTestKit[AccountCommand, AccountEvent, AccountState](system, Account(UUID.randomUUID().toString)(stubMessenger))
-  private val uuid = UUID.randomUUID().toString
+  private val txnId = UUID.randomUUID().toString
+  private val accountId = UUID.randomUUID().toString
+  private val eventSourcedTestKit = EventSourcedBehaviorTestKit[AccountCommand, AccountEvent, AccountState](system, Account(accountId)(stubMessenger))
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
@@ -42,8 +43,8 @@ class CreditAccountSpec
 
       "reject Debit(uuid, 1) with INSUFFICIENT_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Debit(uuid, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Debit(txnId, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -52,9 +53,9 @@ class CreditAccountSpec
 
       "accept Credit(uuid, 1) and have 1/1/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 1, 0)) once
-        val result = eventSourcedTestKit.runCommand(Credit(uuid, 1))
-        result.events shouldBe Seq(Credited(uuid, 1, 1))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 1, 0)) once
+        val result = eventSourcedTestKit.runCommand(Credit(txnId, 1))
+        result.events shouldBe Seq(Credited(txnId, 1, 1))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -62,8 +63,8 @@ class CreditAccountSpec
 
       "reject Hold(uuid, 1) with INSUFFICIENT_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Hold(uuid, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Hold(txnId, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -72,8 +73,8 @@ class CreditAccountSpec
 
       "reject Capture(uuid, 1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Capture(uuid, 1, 0))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Capture(txnId, 1, 0))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -82,8 +83,8 @@ class CreditAccountSpec
 
       "reject Release(uuid, 1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Release(uuid, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Release(txnId, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
@@ -92,9 +93,9 @@ class CreditAccountSpec
 
       "accept DebitAdjust(uuid, 1) and have -1/-1/0 balance with Overdrawn" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, -1, -1, 0)) once
-        val result = eventSourcedTestKit.runCommand(DebitAdjust(uuid, 1))
-        result.events shouldBe Seq(Debited(uuid, -1, -1), Overdrawn(uuid))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, -1, -1, 0)) once
+        val result = eventSourcedTestKit.runCommand(DebitAdjust(txnId, 1))
+        result.events shouldBe Seq(Debited(txnId, -1, -1), Overdrawn(txnId))
         result.stateOfType[CreditAccount].availableBalance shouldBe -1
         result.stateOfType[CreditAccount].currentBalance shouldBe -1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -102,9 +103,9 @@ class CreditAccountSpec
 
       "accept CreditAdjust(uuid, 1) and have 1/1/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 1, 0)) once
-        val result = eventSourcedTestKit.runCommand(CreditAdjust(uuid, 1))
-        result.events shouldBe Seq(Credited(uuid, 1, 1))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 1, 0)) once
+        val result = eventSourcedTestKit.runCommand(CreditAdjust(txnId, 1))
+        result.events shouldBe Seq(Credited(txnId, 1, 1))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -113,15 +114,15 @@ class CreditAccountSpec
 
     "at initially 1/1/0 balance" must {
       def given(): Unit = {
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 1, 0)) once
-        val given = eventSourcedTestKit.runCommand(Credit(uuid, 1))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 1, 0)) once
+        val given = eventSourcedTestKit.runCommand(Credit(txnId, 1))
       }
 
       "accept Debit(uuid, 1) and have 0/0/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 0, 0, 0)) once
-        val result = eventSourcedTestKit.runCommand(Debit(uuid, 1))
-        result.events shouldBe Seq(Debited(uuid, 0, 0))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 0, 0, 0)) once
+        val result = eventSourcedTestKit.runCommand(Debit(txnId, 1))
+        result.events shouldBe Seq(Debited(txnId, 0, 0))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -129,9 +130,9 @@ class CreditAccountSpec
 
       "accept Credit(uuid, 1) and have 2/2/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 2, 2, 0)) once
-        val result = eventSourcedTestKit.runCommand(Credit(uuid, 1))
-        result.events shouldBe Seq(Credited(uuid, 2, 2))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 2, 2, 0)) once
+        val result = eventSourcedTestKit.runCommand(Credit(txnId, 1))
+        result.events shouldBe Seq(Credited(txnId, 2, 2))
         result.stateOfType[CreditAccount].availableBalance shouldBe 2
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -139,9 +140,9 @@ class CreditAccountSpec
 
       "accept Hold(uuid, 1) and have 0/1/1 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 0, 1, 1)) once
-        val result = eventSourcedTestKit.runCommand(Hold(uuid, 1))
-        result.events shouldBe Seq(Authorized(uuid, 0, 1))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 0, 1, 1)) once
+        val result = eventSourcedTestKit.runCommand(Hold(txnId, 1))
+        result.events shouldBe Seq(Authorized(txnId, 0, 1))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
@@ -149,8 +150,8 @@ class CreditAccountSpec
 
       "reject Hold(uuid, 2) with INSUFFICIENT_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Hold(uuid, 2))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Hold(txnId, 2))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -159,8 +160,8 @@ class CreditAccountSpec
 
       "reject Capture(uuid, 1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Capture(uuid, 1, 0))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Capture(txnId, 1, 0))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -169,8 +170,8 @@ class CreditAccountSpec
 
       "reject Release(uuid, 1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Release(uuid, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Release(txnId, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -179,9 +180,9 @@ class CreditAccountSpec
 
       "accept DebitAdjust(uuid, 1) and have 0/0/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 0, 0, 0)) once
-        val result = eventSourcedTestKit.runCommand(DebitAdjust(uuid, 1))
-        result.events shouldBe Seq(Debited(uuid, 0, 0))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 0, 0, 0)) once
+        val result = eventSourcedTestKit.runCommand(DebitAdjust(txnId, 1))
+        result.events shouldBe Seq(Debited(txnId, 0, 0))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -189,9 +190,9 @@ class CreditAccountSpec
 
       "accept CreditAdjust(uuid, 1) and have 2/2/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 2, 2, 0)) once
-        val result = eventSourcedTestKit.runCommand(CreditAdjust(uuid, 1))
-        result.events shouldBe Seq(Credited(uuid, 2, 2))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 2, 2, 0)) once
+        val result = eventSourcedTestKit.runCommand(CreditAdjust(txnId, 1))
+        result.events shouldBe Seq(Credited(txnId, 2, 2))
         result.stateOfType[CreditAccount].availableBalance shouldBe 2
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -201,17 +202,17 @@ class CreditAccountSpec
 
     "at initially 0/1/1 balance" must {
       def given(): Unit = {
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 1, 0)) once
-        val given1 = eventSourcedTestKit.runCommand(Credit(uuid, 1))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 1, 0)) once
+        val given1 = eventSourcedTestKit.runCommand(Credit(txnId, 1))
 
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 0, 1, 1)) once
-        val given2 = eventSourcedTestKit.runCommand(Hold(uuid, 1))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 0, 1, 1)) once
+        val given2 = eventSourcedTestKit.runCommand(Hold(txnId, 1))
       }
 
       "reject Debit(uuid, 1) with INSUFFICIENT_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Debit(uuid, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Debit(txnId, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -220,9 +221,9 @@ class CreditAccountSpec
 
       "accept Credit(uuid, 1) and have 1/2/1 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 2, 1)) once
-        val result = eventSourcedTestKit.runCommand(Credit(uuid, 1))
-        result.events shouldBe Seq(Credited(uuid, 1, 2))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 2, 1)) once
+        val result = eventSourcedTestKit.runCommand(Credit(txnId, 1))
+        result.events shouldBe Seq(Credited(txnId, 1, 2))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
@@ -230,8 +231,8 @@ class CreditAccountSpec
 
       "reject Hold(uuid, 1) with INSUFFICIENT_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Hold(uuid, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Hold(txnId, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -240,9 +241,9 @@ class CreditAccountSpec
 
       "accept Capture(uuid, 1,0) and have 0/0/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 0, 0, 0)) once
-        val result = eventSourcedTestKit.runCommand(Capture(uuid, 1, 0))
-        result.events shouldBe Seq(Captured(uuid, 0, 0, 0))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 0, 0, 0)) once
+        val result = eventSourcedTestKit.runCommand(Capture(txnId, 1, 0))
+        result.events shouldBe Seq(Captured(txnId, 0, 0, 0))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -250,8 +251,8 @@ class CreditAccountSpec
 
       "reject Capture(uuid, 1,1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Capture(uuid, 1, 1))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Capture(txnId, 1, 1))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -260,8 +261,8 @@ class CreditAccountSpec
 
       "reject Capture(uuid, 2,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Capture(uuid, 2, 0))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Capture(txnId, 2, 0))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -270,9 +271,9 @@ class CreditAccountSpec
 
       "accept Release(uuid, 1) and have 1/1/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 1, 0)) once
-        val result = eventSourcedTestKit.runCommand(Release(uuid, 1))
-        result.events shouldBe Seq(Released(uuid, 1, 0))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 1, 0)) once
+        val result = eventSourcedTestKit.runCommand(Release(txnId, 1))
+        result.events shouldBe Seq(Released(txnId, 1, 0))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -280,8 +281,8 @@ class CreditAccountSpec
 
       "reject Release(uuid, 2) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        stubMessenger expects(uuid, AccountingFailed(uuid, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
-        val result = eventSourcedTestKit.runCommand(Release(uuid, 2))
+        stubMessenger expects(txnId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)) once
+        val result = eventSourcedTestKit.runCommand(Release(txnId, 2))
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
@@ -292,18 +293,18 @@ class CreditAccountSpec
 
     "at initially 0/2/2 balance" must {
       def given(): Unit = {
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 2, 2, 0)) once
-        val given1 = eventSourcedTestKit.runCommand(Credit(uuid, 2))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 2, 2, 0)) once
+        val given1 = eventSourcedTestKit.runCommand(Credit(txnId, 2))
 
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 0, 2, 2)) once
-        val given2 = eventSourcedTestKit.runCommand(Hold(uuid, 2))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 0, 2, 2)) once
+        val given2 = eventSourcedTestKit.runCommand(Hold(txnId, 2))
       }
 
       "accept Capture(uuid, 1,1) and have 1/1/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, 1, 1, 0)) once
-        val result = eventSourcedTestKit.runCommand(Capture(uuid, 1, 1))
-        result.events shouldBe Seq(Captured(uuid, 1, 1, 0))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, 1, 1, 0)) once
+        val result = eventSourcedTestKit.runCommand(Capture(txnId, 1, 1))
+        result.events shouldBe Seq(Captured(txnId, 1, 1, 0))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -311,16 +312,16 @@ class CreditAccountSpec
 
       "accept DebitAdjust(uuid, 1), Capture(uuid, 2,0) and have -1/-1/0 balance" in {
         given()
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, -1, 1, 2)) once
-        val result1 = eventSourcedTestKit.runCommand(DebitAdjust(uuid, 1))
-        result1.events shouldBe Seq(Debited(uuid, -1, 1), Overdrawn(uuid))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, -1, 1, 2)) once
+        val result1 = eventSourcedTestKit.runCommand(DebitAdjust(txnId, 1))
+        result1.events shouldBe Seq(Debited(txnId, -1, 1), Overdrawn(txnId))
         result1.stateOfType[CreditAccount].availableBalance shouldBe -1
         result1.stateOfType[CreditAccount].currentBalance shouldBe 1
         result1.stateOfType[CreditAccount].authorizedBalance shouldBe 2
 
-        stubMessenger expects(uuid, AccountingSuccessful(uuid, -1, -1, 0)) once
-        val result2 = eventSourcedTestKit.runCommand(Capture(uuid, 2, 0))
-        result2.events shouldBe Seq(Captured(uuid, -1, -1, 0), Overdrawn(uuid))
+        stubMessenger expects(txnId, AccountingSuccessful(accountId, -1, -1, 0)) once
+        val result2 = eventSourcedTestKit.runCommand(Capture(txnId, 2, 0))
+        result2.events shouldBe Seq(Captured(txnId, -1, -1, 0), Overdrawn(txnId))
         result2.stateOfType[CreditAccount].availableBalance shouldBe -1
         result2.stateOfType[CreditAccount].currentBalance shouldBe -1
         result2.stateOfType[CreditAccount].authorizedBalance shouldBe 0

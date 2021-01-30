@@ -5,11 +5,11 @@ import akka.persistence.typed.scaladsl.Effect
 import io.openledger.account.Account._
 import io.openledger.account.AccountMode.{CREDIT, DEBIT}
 
-case class Ready() extends AccountState {
+case class Ready(accountId: String) extends AccountState {
   override def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState =
     event match {
-      case CreditAccountOpened() => CreditAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
-      case DebitAccountOpened() => DebitAccount(BigDecimal(0), BigDecimal(0), BigDecimal(0))
+      case CreditAccountOpened() => CreditAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0))
+      case DebitAccountOpened() => DebitAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0))
     }
 
   override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger): Effect[AccountEvent, AccountState] =
