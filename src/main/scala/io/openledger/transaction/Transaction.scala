@@ -30,7 +30,7 @@ object Transaction {
 
   sealed trait TransactionCommand extends JsonSerializable
 
-  final case class Begin(accountToDebit: String, accountToCredit: String, amount: BigDecimal) extends TransactionCommand
+  final case class Begin(accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean = false) extends TransactionCommand
 
   final case class AcceptAccounting(accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
 
@@ -38,7 +38,9 @@ object Transaction {
 
   final case class Reverse() extends TransactionCommand
 
-  final case class Started(accountToDebit: String, accountToCredit: String, amount: BigDecimal) extends TransactionEvent
+  final case class Capture(captureAmount: BigDecimal) extends TransactionCommand
+
+  final case class Started(accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean) extends TransactionEvent
 
   final case class DebitHoldSucceeded(debitedAccountResultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionEvent
 
@@ -57,6 +59,7 @@ object Transaction {
   final case class DebitAdjustmentDone(creditedAccountResultingBalance: ResultingBalance) extends TransactionEvent
 
   final case class ReversalRequested() extends TransactionEvent
+  final case class CaptureRequested(captureAmount:BigDecimal) extends TransactionEvent
 
   final case class ResultingBalance(availableBalance: BigDecimal, currentBalance: BigDecimal)
 
@@ -65,6 +68,8 @@ object Transaction {
   final case class TransactionFailed(code: LedgerError.Value) extends TransactionResult
 
   final case class TransactionReversed() extends TransactionResult
+
+  final case class TransactionPending() extends TransactionResult
 
 
 }

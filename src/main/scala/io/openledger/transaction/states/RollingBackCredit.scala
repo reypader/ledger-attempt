@@ -7,10 +7,10 @@ import io.openledger.account.Account
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
-case class RollingBackCredit(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal,amountCaptured:Option[BigDecimal], code:Option[LedgerError.Value]) extends TransactionState {
+case class RollingBackCredit(transactionId: String, accountToDebit: String, accountToCredit: String, creditedAmount: BigDecimal, amountCaptured:Option[BigDecimal], code:Option[LedgerError.Value]) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case DebitAdjustmentDone(debitedAccountResultingBalance) => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amount, amountCaptured, code)
+      case DebitAdjustmentDone(debitedAccountResultingBalance) => RollingBackDebit(transactionId, accountToDebit, accountToCredit, creditedAmount, amountCaptured, code)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
@@ -23,6 +23,6 @@ case class RollingBackCredit(transactionId: String, accountToDebit: String, acco
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Performing DebitAdjust on $accountToDebit")
-    accountMessenger(accountToCredit, Account.DebitAdjust(transactionId, amount))
+    accountMessenger(accountToCredit, Account.DebitAdjust(transactionId, creditedAmount))
   }
 }

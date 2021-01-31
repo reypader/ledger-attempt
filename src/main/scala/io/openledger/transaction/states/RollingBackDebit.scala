@@ -7,11 +7,11 @@ import io.openledger.account.Account
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
-case class RollingBackDebit(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, amountCaptured: Option[BigDecimal], code: Option[LedgerError.Value]) extends TransactionState {
+case class RollingBackDebit(transactionId: String, accountToDebit: String, accountToCredit: String, authorizedAmount: BigDecimal, amountCaptured: Option[BigDecimal], code: Option[LedgerError.Value]) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case CreditAdjustmentDone(debitedAccountResultingBalance) => code match {
-        case Some(code) => Failed(transactionId, accountToDebit, accountToCredit, amount, code)
+        case Some(code) => Failed(transactionId, accountToDebit, accountToCredit, authorizedAmount, code)
         case None => Reversed(transactionId)
       }
     }
@@ -31,7 +31,7 @@ case class RollingBackDebit(transactionId: String, accountToDebit: String, accou
         accountMessenger(accountToDebit, Account.CreditAdjust(transactionId, capturedAmount))
       case None =>
         context.log.info(s"Performing Release on $accountToDebit")
-        accountMessenger(accountToDebit, Account.Release(transactionId, amount))
+        accountMessenger(accountToDebit, Account.Release(transactionId, authorizedAmount))
     }
   }
 }
