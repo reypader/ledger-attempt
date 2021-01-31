@@ -7,15 +7,15 @@ import io.openledger.account.Account
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
-case class RollingBackCredit(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal) extends TransactionState {
+case class RollingBackCredit(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal,amountCaptured:Option[BigDecimal], code:Option[LedgerError.Value]) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case DebitAdjustmentDone(debitedAccountResultingBalance) => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amount, None)
+      case DebitAdjustmentDone(debitedAccountResultingBalance) => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amount, amountCaptured, code)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
     command match {
-      case AcceptAccounting(accountId, resultingBalance) if accountId == accountToCredit =>
+      case AcceptAccounting(accountId, resultingBalance,_) if accountId == accountToCredit =>
         Effect.persist(DebitAdjustmentDone(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToCredit =>
         Effect.none.thenRun(_ => context.log.error(s"ALERT: DebitAdjustment failed $code for $accountId"))

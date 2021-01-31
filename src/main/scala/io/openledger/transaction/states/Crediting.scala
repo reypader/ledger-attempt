@@ -6,16 +6,18 @@ import io.openledger.account.Account
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
-case class Crediting(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, debitedAccountResultingBalance: ResultingBalance) extends TransactionState {
+import java.time.OffsetDateTime
+
+case class Crediting(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, captureAmount:BigDecimal, debitedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case CreditSucceeded(creditedAccountResultingBalance) => Posted(transactionId, accountToDebit, accountToCredit, amount, debitedAccountResultingBalance, creditedAccountResultingBalance)
-      case CreditFailed(code) => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amount, Some(code))
+      case CreditSucceeded(creditedAccountResultingBalance) => Posting(transactionId, accountToDebit, accountToCredit, amount, captureAmount, debitedAccountResultingBalance, creditedAccountResultingBalance, debitHoldTimestamp)
+      case CreditFailed(code) => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amount, None, Some(code))
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
     command match {
-      case AcceptAccounting(accountId, resultingBalance) if accountId == accountToCredit =>
+      case AcceptAccounting(accountId, resultingBalance, _) if accountId == accountToCredit =>
         Effect.persist(CreditSucceeded(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToCredit =>
         Effect.persist(CreditFailed(code)).thenRun(_.proceed())
@@ -23,6 +25,7 @@ case class Crediting(transactionId: String, accountToDebit: String, accountToCre
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Performing Credit on $accountToCredit")
-    accountMessenger(accountToCredit, Account.Credit(transactionId, amount))
+    accountMessenger(accountToCredit, Account.Credit(transactionId, captureAmount))
+    //TODO: Do nothing if auth/capture
   }
 }

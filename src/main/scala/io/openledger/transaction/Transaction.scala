@@ -8,6 +8,8 @@ import io.openledger.account.Account.AccountingCommand
 import io.openledger.transaction.states.{Ready, TransactionState}
 import io.openledger.{JsonSerializable, LedgerError}
 
+import java.time.OffsetDateTime
+
 object Transaction {
 
   type AccountMessenger = (String, AccountingCommand) => Unit
@@ -30,7 +32,7 @@ object Transaction {
 
   final case class Begin(accountToDebit: String, accountToCredit: String, amount: BigDecimal) extends TransactionCommand
 
-  final case class AcceptAccounting(accountId: String, resultingBalance: ResultingBalance) extends TransactionCommand
+  final case class AcceptAccounting(accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
 
   final case class RejectAccounting(accountId: String, code: LedgerError.Value) extends TransactionCommand
 
@@ -38,9 +40,13 @@ object Transaction {
 
   final case class Started(accountToDebit: String, accountToCredit: String, amount: BigDecimal) extends TransactionEvent
 
-  final case class DebitSucceeded(debitedAccountResultingBalance: ResultingBalance) extends TransactionEvent
+  final case class DebitHoldSucceeded(debitedAccountResultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionEvent
 
-  final case class DebitFailed(code: LedgerError.Value) extends TransactionEvent
+  final case class DebitHoldFailed(code: LedgerError.Value) extends TransactionEvent
+
+  final case class DebitPostSucceeded(debitedAccountResultingBalance: ResultingBalance) extends TransactionEvent
+
+  final case class DebitPostFailed(code: LedgerError.Value) extends TransactionEvent
 
   final case class CreditSucceeded(creditedAccountResultingBalance: ResultingBalance) extends TransactionEvent
 

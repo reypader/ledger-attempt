@@ -7,7 +7,7 @@ import io.openledger.account.Account
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
-case class RollingBackDebit(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, code:Option[LedgerError.Value]) extends TransactionState {
+case class RollingBackDebit(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, amountCaptured: Option[BigDecimal], code: Option[LedgerError.Value]) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case CreditAdjustmentDone(debitedAccountResultingBalance) => code match {
@@ -18,14 +18,20 @@ case class RollingBackDebit(transactionId: String, accountToDebit: String, accou
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
     command match {
-      case AcceptAccounting(accountId, resultingBalance) if accountId == accountToDebit =>
+      case AcceptAccounting(accountId, resultingBalance, _) if accountId == accountToDebit =>
         Effect.persist(CreditAdjustmentDone(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToDebit =>
         Effect.none.thenRun(_ => context.log.error(s"ALERT: CreditAdjustment failed $code for $accountId"))
     }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
-    context.log.info(s"Performing CreditAdjust on $accountToDebit")
-    accountMessenger(accountToDebit, Account.CreditAdjust(transactionId, amount))
+    amountCaptured match {
+      case Some(capturedAmount) =>
+        context.log.info(s"Performing CreditAdjust on $accountToDebit")
+        accountMessenger(accountToDebit, Account.CreditAdjust(transactionId, capturedAmount))
+      case None =>
+        context.log.info(s"Performing Release on $accountToDebit")
+        accountMessenger(accountToDebit, Account.Release(transactionId, amount))
+    }
   }
 }
