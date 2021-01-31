@@ -3,8 +3,8 @@ package io.openledger.account.states
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
 import io.openledger.DateUtils.TimeGen
+import io.openledger.LedgerError
 import io.openledger.account.Account._
-import io.openledger.{DateUtils, LedgerError}
 
 case class CreditAccount(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountState {
   override def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState = {
@@ -18,7 +18,7 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
     }
   }
 
-  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now : TimeGen): Effect[AccountEvent, AccountState] = {
+  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState] = {
     command match {
       case Debit(transactionId, amountToDebit) =>
         val newAvailableBalance = availableBalance - amountToDebit

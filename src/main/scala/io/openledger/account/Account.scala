@@ -60,9 +60,9 @@ object Account {
 
   final case class AccountingFailed(accountId: String, code: LedgerError.Value) extends AccountingStatus
 
-  final case class DebitAccountOpened(timestamp:OffsetDateTime) extends AccountEvent
+  final case class DebitAccountOpened(timestamp: OffsetDateTime) extends AccountEvent
 
-  final case class CreditAccountOpened(timestamp:OffsetDateTime) extends AccountEvent
+  final case class CreditAccountOpened(timestamp: OffsetDateTime) extends AccountEvent
 
   final case class Debited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 
@@ -70,7 +70,7 @@ object Account {
 
   final case class DebitAuthorized(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class DebitPosted(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal, postingTimestamp:OffsetDateTime, timestamp: OffsetDateTime) extends AccountingEvent
+  final case class DebitPosted(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal, postingTimestamp: OffsetDateTime, timestamp: OffsetDateTime) extends AccountingEvent
 
   final case class Released(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 

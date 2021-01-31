@@ -9,5 +9,5 @@ import io.openledger.account.Account.{AccountCommand, AccountEvent, TransactionM
 trait AccountState extends JsonSerializable {
   def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState
 
-  def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now : TimeGen): Effect[AccountEvent, AccountState]
+  def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState]
 }

@@ -59,7 +59,8 @@ object Transaction {
   final case class DebitAdjustmentDone(creditedAccountResultingBalance: ResultingBalance) extends TransactionEvent
 
   final case class ReversalRequested() extends TransactionEvent
-  final case class CaptureRequested(captureAmount:BigDecimal) extends TransactionEvent
+
+  final case class CaptureRequested(captureAmount: BigDecimal) extends TransactionEvent
 
   final case class ResultingBalance(availableBalance: BigDecimal, currentBalance: BigDecimal)
 

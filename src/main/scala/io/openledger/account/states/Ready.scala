@@ -13,7 +13,7 @@ case class Ready(accountId: String) extends AccountState {
       case DebitAccountOpened(_) => DebitAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0))
     }
 
-  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now : TimeGen): Effect[AccountEvent, AccountState] =
+  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState] =
     command match {
       case Open(mode) => mode match {
         case CREDIT =>

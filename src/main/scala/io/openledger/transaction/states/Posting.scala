@@ -8,7 +8,7 @@ import io.openledger.transaction.Transaction._
 
 import java.time.OffsetDateTime
 
-case class Posting(transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, captureAmount:BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
+case class Posting(transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, captureAmount: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case DebitPostSucceeded(debitPostedAccountResultingBalance) => Posted(transactionId, accountToDebit, accountToCredit, captureAmount, debitPostedAccountResultingBalance, creditedAccountResultingBalance)
@@ -27,6 +27,6 @@ case class Posting(transactionId: String, accountToDebit: String, accountToCredi
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Performing Post on $accountToDebit")
-    accountMessenger(accountToDebit, Account.Post(transactionId, captureAmount, amountAuthorized-captureAmount, debitHoldTimestamp))
+    accountMessenger(accountToDebit, Account.Post(transactionId, captureAmount, amountAuthorized - captureAmount, debitHoldTimestamp))
   }
 }

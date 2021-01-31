@@ -8,8 +8,8 @@ import io.openledger.transaction.Transaction.{AccountMessenger, ResultMessenger,
 trait TransactionState extends JsonSerializable {
   def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState
 
-  def proceed()(implicit context: ActorContext[TransactionCommand],accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit
+  def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit
 
-  def handleCommand(command: TransactionCommand)(implicit context: ActorContext[TransactionCommand],accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState]
+  def handleCommand(command: TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState]
 }
 

@@ -48,7 +48,7 @@ class TransactionSpec
           stubAccountMessenger expects(accountIdToDebit, DebitHold(txnId, transactionAmount)) once
         }
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -59,7 +59,7 @@ class TransactionSpec
     "Authorizing" must {
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -113,7 +113,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -182,7 +182,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -237,7 +237,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -291,7 +291,6 @@ class TransactionSpec
       }
 
       "transition to RollingBackCredit after DebitPostFailed" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, DebitHold(txnId, transactionAmount)) once
@@ -322,7 +321,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -392,7 +391,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -472,7 +471,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, false))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -553,7 +552,7 @@ class TransactionSpec
     "Authorizing (auth only)" must {
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, true))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -605,7 +604,7 @@ class TransactionSpec
 
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, true))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -646,7 +645,6 @@ class TransactionSpec
       }
 
       "transition to Reversed after ReverseRequested" in {
-        val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
 
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, DebitHold(txnId, transactionAmount)) once
@@ -676,8 +674,8 @@ class TransactionSpec
       val captureAmount: BigDecimal = BigDecimal(23)
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount, true))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, true))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -761,8 +759,8 @@ class TransactionSpec
       val captureAmount: BigDecimal = BigDecimal(23)
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount, true))
-        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, true))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
+        beginResult.events shouldBe Seq(Started(accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
@@ -827,7 +825,6 @@ class TransactionSpec
       }
 
       "transition to RollingBackCredit after DebitPostFailed" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, DebitHold(txnId, transactionAmount)) once
