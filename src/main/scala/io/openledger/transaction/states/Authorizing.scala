@@ -25,7 +25,7 @@ case class Authorizing(transactionId: String, accountToDebit: String, accountToC
         Effect.persist(DebitHoldSucceeded(resultingBalance, timestamp)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToDebit =>
         Effect.persist(DebitHoldFailed(code)).thenRun(_.proceed())
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

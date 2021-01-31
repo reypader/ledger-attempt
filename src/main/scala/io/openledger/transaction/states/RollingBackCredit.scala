@@ -20,7 +20,7 @@ case class RollingBackCredit(transactionId: String, accountToDebit: String, acco
         Effect.persist(DebitAdjustmentDone(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToCredit =>
         Effect.none.thenRun(_ => context.log.error(s"ALERT: DebitAdjustment failed $code for $accountId"))
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

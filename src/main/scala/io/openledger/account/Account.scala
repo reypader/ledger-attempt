@@ -7,7 +7,7 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.DateUtils.TimeGen
 import io.openledger.account.AccountMode.AccountMode
 import io.openledger.account.states.{AccountState, Ready}
-import io.openledger.{JsonSerializable, LedgerError, ResultingBalance}
+import io.openledger.{JsonSerializable, LedgerError}
 
 import java.time.OffsetDateTime
 
@@ -21,7 +21,7 @@ object Account {
         persistenceId = PersistenceId.ofUniqueId(accountId),
         emptyState = Ready(accountId),
         commandHandler = (state, cmd) => cmd match {
-          case Get(replyTo) => Effect.none.thenReply(replyTo)(state=>state)
+          case Get(replyTo) => Effect.none.thenReply(replyTo)(state => state)
           case _ => state.handleCommand(cmd)
         },
         eventHandler = (state, evt) => state.handleEvent(evt))

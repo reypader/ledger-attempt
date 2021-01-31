@@ -104,7 +104,7 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
             .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
         }
 
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

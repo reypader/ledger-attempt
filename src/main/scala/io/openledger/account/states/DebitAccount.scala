@@ -107,7 +107,7 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
           Effect.persist(events)
             .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
         }
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

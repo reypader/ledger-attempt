@@ -25,7 +25,7 @@ case class Posting(transactionId: String, accountToDebit: String, accountToCredi
         Effect.persist(DebitPostSucceeded(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToDebit =>
         Effect.persist(DebitPostFailed(code)).thenRun(_.proceed())
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

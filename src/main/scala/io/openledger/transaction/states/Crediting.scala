@@ -23,7 +23,7 @@ case class Crediting(transactionId: String, accountToDebit: String, accountToCre
         Effect.persist(CreditSucceeded(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToCredit =>
         Effect.persist(CreditFailed(code)).thenRun(_.proceed())
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

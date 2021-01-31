@@ -2,9 +2,9 @@ package io.openledger.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.{LedgerError, ResultingBalance}
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
+import io.openledger.{LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
@@ -21,10 +21,10 @@ case class Pending(transactionId: String, accountToDebit: String, accountToCredi
       case Capture(captureAmount) if captureAmount <= amountAuthorized =>
         Effect.persist(CaptureRequested(captureAmount)).thenRun(_.proceed())
       case Capture(captureAmount) if captureAmount > amountAuthorized =>
-        Effect.none.thenRun(_=>resultMessenger(CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED)))
+        Effect.none.thenRun(_ => resultMessenger(CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED)))
       case Reverse() =>
         Effect.persist(ReversalRequested()).thenRun(_.proceed())
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

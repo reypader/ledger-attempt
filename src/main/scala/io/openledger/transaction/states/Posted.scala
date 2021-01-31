@@ -16,7 +16,7 @@ case class Posted(transactionId: String, accountToDebit: String, accountToCredit
     context.log.info(s"Handling $command")
     command match {
       case Reverse() => Effect.persist(ReversalRequested()).thenRun(_.proceed())
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

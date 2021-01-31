@@ -17,7 +17,7 @@ case class Ready(transactionId: String) extends TransactionState {
       case Begin(accountToDebit, accountToCredit, amount, authOnly) =>
         Effect.persist(Started(accountToDebit, accountToCredit, amount, authOnly))
           .thenRun(_.proceed())
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }

@@ -24,7 +24,7 @@ case class Ready(accountId: String) extends AccountState {
           Effect.persist(DebitAccountOpened(now()))
             .thenNoReply()
       }
-      case _=>
+      case _ =>
         context.log.warn(s"Unhandled $command")
         Effect.none
     }
