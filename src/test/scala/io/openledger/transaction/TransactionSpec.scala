@@ -6,7 +6,7 @@ import com.typesafe.config.ConfigFactory
 import io.openledger.account.Account._
 import io.openledger.transaction.Transaction.{apply => _, _}
 import io.openledger.transaction.states._
-import io.openledger.{DateUtils, LedgerError}
+import io.openledger.{DateUtils, LedgerError, ResultingBalance}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike

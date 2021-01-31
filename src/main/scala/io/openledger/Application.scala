@@ -7,7 +7,7 @@ import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityType
 import io.openledger.account.Account
 import io.openledger.account.Account.{AccountingCommand, AccountingFailed, AccountingStatus, AccountingSuccessful}
 import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction.{AcceptAccounting, RejectAccounting, ResultingBalance, TransactionResult}
+import io.openledger.transaction.Transaction.{AcceptAccounting, RejectAccounting, TransactionResult}
 
 class Application extends App {
   //#actor-system

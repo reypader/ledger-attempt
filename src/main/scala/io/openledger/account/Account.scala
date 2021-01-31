@@ -1,13 +1,13 @@
 package io.openledger.account
 
-import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PersistenceId
-import akka.persistence.typed.scaladsl.EventSourcedBehavior
+import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.DateUtils.TimeGen
 import io.openledger.account.AccountMode.AccountMode
 import io.openledger.account.states.{AccountState, Ready}
-import io.openledger.{JsonSerializable, LedgerError}
+import io.openledger.{JsonSerializable, LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
@@ -20,7 +20,10 @@ object Account {
       EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
         persistenceId = PersistenceId.ofUniqueId(accountId),
         emptyState = Ready(accountId),
-        commandHandler = (state, cmd) => state.handleCommand(cmd),
+        commandHandler = (state, cmd) => cmd match {
+          case Get(replyTo) => Effect.none.thenReply(replyTo)(state=>state)
+          case _ => state.handleCommand(cmd)
+        },
         eventHandler = (state, evt) => state.handleEvent(evt))
     }
 
@@ -55,6 +58,8 @@ object Account {
   final case class Post(transactionId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal, postingTimestamp: OffsetDateTime) extends AccountingCommand
 
   final case class Release(transactionId: String, amountToRelease: BigDecimal) extends AccountingCommand
+
+  final case class Get(replyTo: ActorRef[AccountState]) extends AccountCommand
 
   final case class AccountingSuccessful(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingStatus
 

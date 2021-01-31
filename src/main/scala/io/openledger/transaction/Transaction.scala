@@ -6,7 +6,7 @@ import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
 import io.openledger.account.Account.AccountingCommand
 import io.openledger.transaction.states.{Ready, TransactionState}
-import io.openledger.{JsonSerializable, LedgerError}
+import io.openledger.{JsonSerializable, LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
@@ -61,8 +61,6 @@ object Transaction {
   final case class ReversalRequested() extends TransactionEvent
 
   final case class CaptureRequested(captureAmount: BigDecimal) extends TransactionEvent
-
-  final case class ResultingBalance(availableBalance: BigDecimal, currentBalance: BigDecimal)
 
   final case class TransactionSuccessful(debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionResult
 
