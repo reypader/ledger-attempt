@@ -4,15 +4,18 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
+import io.openledger.DateUtils.TimeGen
 import io.openledger.account.AccountMode.AccountMode
 import io.openledger.account.states.{AccountState, Ready}
 import io.openledger.{JsonSerializable, LedgerError}
+
+import java.time.OffsetDateTime
 
 object Account {
 
   type TransactionMessenger = (String, AccountingStatus) => Unit
 
-  def apply(accountId: String)(implicit messenger: TransactionMessenger): Behavior[AccountCommand] =
+  def apply(accountId: String)(implicit messenger: TransactionMessenger, timeGen: TimeGen): Behavior[AccountCommand] =
     Behaviors.setup { implicit actorContext: ActorContext[AccountCommand] =>
       EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
         persistenceId = PersistenceId.ofUniqueId(accountId),
@@ -49,30 +52,30 @@ object Account {
 
   final case class DebitHold(transactionId: String, amountToHold: BigDecimal) extends AccountingCommand
 
-  final case class Post(transactionId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal) extends AccountingCommand
+  final case class Post(transactionId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal, postingTimestamp: OffsetDateTime) extends AccountingCommand
 
   final case class Release(transactionId: String, amountToRelease: BigDecimal) extends AccountingCommand
 
-  final case class AccountingSuccessful(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountingStatus
+  final case class AccountingSuccessful(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingStatus
 
   final case class AccountingFailed(accountId: String, code: LedgerError.Value) extends AccountingStatus
 
-  final case class DebitAccountOpened() extends AccountEvent
+  final case class DebitAccountOpened(timestamp:OffsetDateTime) extends AccountEvent
 
-  final case class CreditAccountOpened() extends AccountEvent
+  final case class CreditAccountOpened(timestamp:OffsetDateTime) extends AccountEvent
 
-  final case class Debited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountingEvent
+  final case class Debited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class Credited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountingEvent
+  final case class Credited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class DebitAuthorized(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
+  final case class DebitAuthorized(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class DebitPosted(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
+  final case class DebitPosted(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal, postingTimestamp:OffsetDateTime, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class Released(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
+  final case class Released(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class Overdrawn(transactionId: String) extends AccountingEvent
+  final case class Overdrawn(transactionId: String, timestamp: OffsetDateTime) extends AccountingEvent
 
-  final case class Overpaid(transactionId: String) extends AccountingEvent
+  final case class Overpaid(transactionId: String, timestamp: OffsetDateTime) extends AccountingEvent
 
 }
