@@ -19,6 +19,7 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
   }
 
   override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState] = {
+    context.log.info(s"Handling $command")
     command match {
       case Debit(transactionId, amountToDebit) =>
         val newAvailableBalance = availableBalance + amountToDebit
@@ -106,7 +107,9 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
           Effect.persist(events)
             .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
         }
-
+      case _=>
+        context.log.warn(s"Unhandled $command")
+        Effect.none
     }
   }
 }

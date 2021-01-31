@@ -16,13 +16,18 @@ case class RollingBackDebit(transactionId: String, accountToDebit: String, accou
       }
     }
 
-  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
+  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
+    context.log.info(s"Handling $command")
     command match {
       case AcceptAccounting(accountId, resultingBalance, _) if accountId == accountToDebit =>
         Effect.persist(CreditAdjustmentDone(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToDebit =>
         Effect.none.thenRun(_ => context.log.error(s"ALERT: CreditAdjustment failed $code for $accountId"))
+      case _=>
+        context.log.warn(s"Unhandled $command")
+        Effect.none
     }
+  }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     amountCaptured match {

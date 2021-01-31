@@ -2,7 +2,7 @@ package io.openledger.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.ResultingBalance
+import io.openledger.{LedgerError, ResultingBalance}
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
@@ -15,13 +15,20 @@ case class Pending(transactionId: String, accountToDebit: String, accountToCredi
       case ReversalRequested() => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amountAuthorized, None, None)
     }
 
-  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
+  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
+    context.log.info(s"Handling $command")
     command match {
-      case Capture(captureAmount) =>
+      case Capture(captureAmount) if captureAmount <= amountAuthorized =>
         Effect.persist(CaptureRequested(captureAmount)).thenRun(_.proceed())
+      case Capture(captureAmount) if captureAmount > amountAuthorized =>
+        Effect.none.thenRun(_=>resultMessenger(CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED)))
       case Reverse() =>
         Effect.persist(ReversalRequested()).thenRun(_.proceed())
+      case _=>
+        context.log.warn(s"Unhandled $command")
+        Effect.none
     }
+  }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Awaiting Capture on Pending")

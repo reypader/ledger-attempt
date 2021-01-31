@@ -18,13 +18,18 @@ case class Posting(transactionId: String, accountToDebit: String, accountToCredi
         RollingBackCredit(transactionId, accountToDebit, accountToCredit, captureAmount, None, Some(code))
     }
 
-  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
+  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
+    context.log.info(s"Handling $command")
     command match {
       case AcceptAccounting(accountId, resultingBalance, timestamp) if accountId == accountToDebit =>
         Effect.persist(DebitPostSucceeded(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToDebit =>
         Effect.persist(DebitPostFailed(code)).thenRun(_.proceed())
+      case _=>
+        context.log.warn(s"Unhandled $command")
+        Effect.none
     }
+  }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Performing Post on $accountToDebit")

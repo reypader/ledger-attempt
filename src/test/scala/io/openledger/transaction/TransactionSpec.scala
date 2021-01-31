@@ -666,6 +666,30 @@ class TransactionSpec
         debitResult.stateOfType[RollingBackDebit].amountCaptured shouldBe None
         debitResult.stateOfType[RollingBackDebit].code shouldBe None
       }
+
+      "do nothing on over-Capture" in {
+        val captureAmount: BigDecimal = BigDecimal(100.00001)
+
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, DebitHold(txnId, transactionAmount)) once
+
+          stubResultMessenger expects TransactionPending() once
+
+          stubResultMessenger expects CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED) once
+        }
+
+        given()
+
+        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount))
+        pendingResult.hasNoEvents shouldBe true
+        // Nothing should change
+        pendingResult.stateOfType[Pending].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        pendingResult.stateOfType[Pending].accountToDebit shouldBe accountIdToDebit
+        pendingResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
+        pendingResult.stateOfType[Pending].transactionId shouldBe txnId
+        pendingResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
+        pendingResult.stateOfType[Pending].debitHoldTimestamp shouldBe theTime
+      }
     }
 
     "Crediting (partial)" must {

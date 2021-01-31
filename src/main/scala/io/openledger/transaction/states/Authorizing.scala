@@ -18,16 +18,21 @@ case class Authorizing(transactionId: String, accountToDebit: String, accountToC
       case DebitHoldFailed(code) => Failed(transactionId, accountToDebit, accountToCredit, amountAuthorized, code)
     }
 
-  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] =
+  override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
+    context.log.info(s"Handling $command")
     command match {
       case AcceptAccounting(accountId, resultingBalance, timestamp) if accountId == accountToDebit =>
         Effect.persist(DebitHoldSucceeded(resultingBalance, timestamp)).thenRun(_.proceed())
       case RejectAccounting(accountId, code) if accountId == accountToDebit =>
         Effect.persist(DebitHoldFailed(code)).thenRun(_.proceed())
+      case _=>
+        context.log.warn(s"Unhandled $command")
+        Effect.none
     }
+  }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
-    context.log.info(s"Performing Debit on $accountToDebit")
+    context.log.info(s"Performing DebitHold on $accountToDebit")
     accountMessenger(accountToDebit, Account.DebitHold(transactionId, amountAuthorized))
   }
 }

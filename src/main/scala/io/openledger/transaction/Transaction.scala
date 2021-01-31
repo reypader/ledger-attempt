@@ -70,5 +70,6 @@ object Transaction {
 
   final case class TransactionPending() extends TransactionResult
 
+  final case class CaptureRejected(code: LedgerError.Value) extends TransactionResult
 
 }

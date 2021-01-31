@@ -13,7 +13,8 @@ case class Ready(accountId: String) extends AccountState {
       case DebitAccountOpened(_) => DebitAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0))
     }
 
-  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState] =
+  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState] = {
+    context.log.info(s"Handling $command")
     command match {
       case Open(mode) => mode match {
         case CREDIT =>
@@ -23,5 +24,9 @@ case class Ready(accountId: String) extends AccountState {
           Effect.persist(DebitAccountOpened(now()))
             .thenNoReply()
       }
+      case _=>
+        context.log.warn(s"Unhandled $command")
+        Effect.none
     }
+  }
 }
