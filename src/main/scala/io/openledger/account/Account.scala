@@ -47,9 +47,9 @@ object Account {
 
   final case class CreditAdjust(transactionId: String, amountToCredit: BigDecimal) extends AccountingCommand
 
-  final case class Hold(transactionId: String, amountToHold: BigDecimal) extends AccountingCommand
+  final case class DebitHold(transactionId: String, amountToHold: BigDecimal) extends AccountingCommand
 
-  final case class Capture(transactionId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal) extends AccountingCommand
+  final case class Post(transactionId: String, amountToCapture: BigDecimal, amountToRelease: BigDecimal) extends AccountingCommand
 
   final case class Release(transactionId: String, amountToRelease: BigDecimal) extends AccountingCommand
 
@@ -65,9 +65,9 @@ object Account {
 
   final case class Credited(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal) extends AccountingEvent
 
-  final case class Authorized(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
+  final case class DebitAuthorized(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
 
-  final case class Captured(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
+  final case class DebitPosted(transactionId: String, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
 
   final case class Released(transactionId: String, newAvailableBalance: BigDecimal, newAuthorizedBalance: BigDecimal) extends AccountingEvent
 
