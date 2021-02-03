@@ -450,6 +450,62 @@ class LedgerSpec
         stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0)
       }
     }
+
+    "an authorized transfer (100) is made" must {
+      def transactionSetup(): Unit = {
+        accountSetup()
+        transactionATestKit.runCommand(Begin(accountA, accountB, 100, authOnly = true))
+        resultProbe.expectMessageType[TransactionPending]
+      }
+
+      "result in A = 0/100/100, B = 100/100/0 balance" in {
+        transactionSetup()
+        val stateA = accountATestKit.runCommand[AccountState](Get)
+        stateA.reply shouldBe CreditAccount(accountA, 0, 100, 100)
+        val stateB = accountBTestKit.runCommand[AccountState](Get)
+        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0)
+      }
+
+      "capture (100) to in A = 0/0/0, B = 200/200/0 balance" in {
+        transactionSetup()
+
+        transactionATestKit.runCommand(Capture(100))
+        resultProbe.expectMessageType[TransactionSuccessful]
+
+        val stateA = accountATestKit.runCommand[AccountState](Get)
+        stateA.reply shouldBe CreditAccount(accountA, 0, 0, 0)
+        val stateB = accountBTestKit.runCommand[AccountState](Get)
+        stateB.reply shouldBe CreditAccount(accountB, 200, 200, 0)
+      }
+
+      //This shouldn't really happen
+      "stop for illegal states and wait for adjustments" in {
+        transactionSetup()
+        // Illegal stuff
+        accountATestKit.runCommand(Post("SETUP-A", 10, 0, DateUtils.now()))
+        val preStateA = accountATestKit.runCommand[AccountState](Get)
+        preStateA.reply shouldBe CreditAccount(accountA, 0, 90, 90)
+
+        // Capture attempt stops
+        transactionATestKit.runCommand(Capture(100))
+        resultProbe.expectNoMessage(10.seconds)
+
+        // Adjustments
+        accountATestKit.runCommand(CreditAdjust("SOME-MANUAL", 10))
+        accountATestKit.runCommand(DebitHold("SOME-MANUAL", 10))
+        val preStateA2 = accountATestKit.runCommand[AccountState](Get)
+        preStateA2.reply shouldBe CreditAccount(accountA, 0, 100, 100)
+
+        // Resume
+        transactionATestKit.runCommand(Capture(100))
+        resultProbe.expectMessageType[TransactionSuccessful]
+
+        val stateA = accountATestKit.runCommand[AccountState](Get)
+        stateA.reply shouldBe CreditAccount(accountA, 0, 0, 0)
+        val stateB = accountBTestKit.runCommand[AccountState](Get)
+        stateB.reply shouldBe CreditAccount(accountB, 200, 200, 0)
+      }
+    }
   }
 
 
