@@ -8,17 +8,17 @@ import io.openledger.transaction.Transaction._
 case class Ready(transactionId: String) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case Started(accountToDebit, accountToCredit, amount, authOnly) => Authorizing(transactionId, accountToDebit, accountToCredit, amount, authOnly)
+      case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly) => Authorizing(entryCode, transactionId, accountToDebit, accountToCredit, amount, authOnly)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
-    context.log.info(s"Handling $command")
+    context.log.info(s"Handling $command in Ready")
     command match {
-      case Begin(accountToDebit, accountToCredit, amount, authOnly) =>
-        Effect.persist(Started(accountToDebit, accountToCredit, amount, authOnly))
+      case Begin(entryCode, accountToDebit, accountToCredit, amount, authOnly) =>
+        Effect.persist(Started(entryCode, accountToDebit, accountToCredit, amount, authOnly))
           .thenRun(_.proceed())
       case _ =>
-        context.log.warn(s"Unhandled $command")
+        context.log.warn(s"Unhandled $command in Ready")
         Effect.none
     }
   }

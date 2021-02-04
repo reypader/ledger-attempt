@@ -9,31 +9,31 @@ import io.openledger.account.Account._
 case class DebitAccount(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountState {
   override def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState = {
     event match {
-      case Debited(_, newAvailableBalance, newCurrentBalance, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)
-      case Credited(_, newAvailableBalance, newCurrentBalance, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)
-      case DebitAuthorized(_, newAvailableBalance, newAuthorizedBalance, _) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
-      case DebitPosted(_, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, _, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance, authorizedBalance = newAuthorizedBalance)
-      case Released(_, newAvailableBalance, newAuthorizedBalance, _) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
-      case Overpaid(_, _) => this
+      case Debited(_, _, newAvailableBalance, newCurrentBalance, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)
+      case Credited(_, _, newAvailableBalance, newCurrentBalance, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)
+      case DebitAuthorized(_, _, newAvailableBalance, newAuthorizedBalance, _) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
+      case DebitPosted(_, _, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, _, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance, authorizedBalance = newAuthorizedBalance)
+      case Released(_, _, newAvailableBalance, newAuthorizedBalance, _) => copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
+      case Overpaid(_, _, _) => this
     }
   }
 
   override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState] = {
     context.log.info(s"Handling $command")
     command match {
-      case Debit(transactionId, amountToDebit) =>
+      case Debit(transactionId, entryCode, amountToDebit) =>
         val newAvailableBalance = availableBalance + amountToDebit
         val newCurrentBalance = currentBalance + amountToDebit
-        Effect.persist(Debited(transactionId, newAvailableBalance, newCurrentBalance, now()))
+        Effect.persist(Debited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
           .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
 
-      case DebitAdjust(transactionId, amountToDebit) =>
+      case DebitAdjust(transactionId, entryCode, amountToDebit) =>
         val newAvailableBalance = availableBalance + amountToDebit
         val newCurrentBalance = currentBalance + amountToDebit
-        Effect.persist(Debited(transactionId, newAvailableBalance, newCurrentBalance, now()))
+        Effect.persist(Debited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
           .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
 
-      case Credit(transactionId, amountToCredit) =>
+      case Credit(transactionId, entryCode, amountToCredit) =>
         val newAvailableBalance = availableBalance - amountToCredit
         val newCurrentBalance = currentBalance - amountToCredit
         if (newAvailableBalance < 0) {
@@ -41,37 +41,37 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
         } else {
           val events = if (newCurrentBalance < 0) {
             Seq(
-              Credited(transactionId, newAvailableBalance, newCurrentBalance, now()),
-              Overpaid(transactionId, now())
+              Credited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()),
+              Overpaid(transactionId, entryCode, now())
             )
           } else {
-            Seq(Credited(transactionId, newAvailableBalance, newCurrentBalance, now()))
+            Seq(Credited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
           }
           Effect.persist(events)
             .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
         }
 
-      case CreditAdjust(transactionId, amountToCredit) =>
+      case CreditAdjust(transactionId, entryCode, amountToCredit) =>
         val newAvailableBalance = availableBalance - amountToCredit
         val newCurrentBalance = currentBalance - amountToCredit
         val events = if (newAvailableBalance < 0 || newCurrentBalance < 0) {
           Seq(
-            Credited(transactionId, newAvailableBalance, newCurrentBalance, now()),
-            Overpaid(transactionId, now())
+            Credited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()),
+            Overpaid(transactionId, entryCode, now())
           )
         } else {
-          Seq(Credited(transactionId, newAvailableBalance, newCurrentBalance, now()))
+          Seq(Credited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
         }
         Effect.persist(events)
           .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
 
-      case DebitHold(transactionId, amountToHold) =>
+      case DebitHold(transactionId, entryCode, amountToHold) =>
         val newAvailableBalance = availableBalance + amountToHold
         val newAuthorizedBalance = authorizedBalance + amountToHold
-        Effect.persist(DebitAuthorized(transactionId, newAvailableBalance, newAuthorizedBalance, now()))
+        Effect.persist(DebitAuthorized(transactionId, entryCode, newAvailableBalance, newAuthorizedBalance, now()))
           .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
 
-      case Post(transactionId, amountToCapture, amountToRelease, postingTimestamp) =>
+      case Post(transactionId, entryCode, amountToCapture, amountToRelease, postingTimestamp) =>
         val newAuthorizedBalance = authorizedBalance - amountToCapture - amountToRelease
         val newCurrentBalance = currentBalance + amountToCapture
         val newAvailableBalance = availableBalance - amountToRelease
@@ -80,17 +80,17 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
         } else {
           val events = if (newAvailableBalance < 0) {
             Seq(
-              DebitPosted(transactionId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, postingTimestamp, now()),
-              Overpaid(transactionId, now())
+              DebitPosted(transactionId, entryCode, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, postingTimestamp, now()),
+              Overpaid(transactionId, entryCode, now())
             )
           } else {
-            Seq(DebitPosted(transactionId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, postingTimestamp, now()))
+            Seq(DebitPosted(transactionId, entryCode, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, postingTimestamp, now()))
           }
           Effect.persist(events)
             .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, now())))
         }
 
-      case Release(transactionId, amountToRelease) =>
+      case Release(transactionId, entryCode, amountToRelease) =>
         val newAuthorizedBalance = authorizedBalance - amountToRelease
         val newAvailableBalance = availableBalance - amountToRelease
         if (newAuthorizedBalance < 0) {
@@ -98,11 +98,11 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
         } else {
           val events = if (newAvailableBalance < 0) {
             Seq(
-              Released(transactionId, newAvailableBalance, newAuthorizedBalance, now()),
-              Overpaid(transactionId, now())
+              Released(transactionId, entryCode, newAvailableBalance, newAuthorizedBalance, now()),
+              Overpaid(transactionId, entryCode, now())
             )
           } else {
-            Seq(Released(transactionId, newAvailableBalance, newAuthorizedBalance, now()))
+            Seq(Released(transactionId, entryCode, newAvailableBalance, newAuthorizedBalance, now()))
           }
           Effect.persist(events)
             .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))

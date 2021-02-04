@@ -30,7 +30,7 @@ object Transaction {
 
   sealed trait TransactionCommand extends JsonSerializable
 
-  final case class Begin(accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean = false) extends TransactionCommand
+  final case class Begin(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean = false) extends TransactionCommand
 
   final case class AcceptAccounting(accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
 
@@ -40,15 +40,15 @@ object Transaction {
 
   final case class Capture(captureAmount: BigDecimal) extends TransactionCommand
 
-  final case class Started(accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean) extends TransactionEvent
+  final case class Resume() extends TransactionCommand
+
+  final case class Started(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean) extends TransactionEvent
 
   final case class DebitHoldSucceeded(debitedAccountResultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionEvent
 
   final case class DebitHoldFailed(code: LedgerError.Value) extends TransactionEvent
 
   final case class DebitPostSucceeded(debitedAccountResultingBalance: ResultingBalance) extends TransactionEvent
-
-  final case class DebitPostFailed(code: LedgerError.Value) extends TransactionEvent
 
   final case class CreditSucceeded(creditedAccountResultingBalance: ResultingBalance) extends TransactionEvent
 
@@ -61,6 +61,12 @@ object Transaction {
   final case class ReversalRequested() extends TransactionEvent
 
   final case class CaptureRequested(captureAmount: BigDecimal) extends TransactionEvent
+
+  final case class DebitPostFailed() extends TransactionEvent
+
+  final case class CreditAdjustmentFailed() extends TransactionEvent
+
+  final case class DebitAdjustmentFailed() extends TransactionEvent
 
   final case class TransactionSuccessful(debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionResult
 

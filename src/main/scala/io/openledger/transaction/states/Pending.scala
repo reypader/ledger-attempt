@@ -8,15 +8,15 @@ import io.openledger.{LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
-case class Pending(transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, debitedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
+case class Pending(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, debitedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case CaptureRequested(captureAmount) => Crediting(transactionId, accountToDebit, accountToCredit, amountAuthorized, captureAmount, debitedAccountResultingBalance, debitHoldTimestamp)
-      case ReversalRequested() => RollingBackDebit(transactionId, accountToDebit, accountToCredit, amountAuthorized, None, None)
+      case CaptureRequested(captureAmount) => Crediting(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, captureAmount, debitedAccountResultingBalance, debitHoldTimestamp)
+      case ReversalRequested() => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, None, None)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
-    context.log.info(s"Handling $command")
+    context.log.info(s"Handling $command in Pending")
     command match {
       case Capture(captureAmount) if captureAmount <= amountAuthorized =>
         Effect.persist(CaptureRequested(captureAmount)).thenRun(_.proceed())
@@ -25,7 +25,7 @@ case class Pending(transactionId: String, accountToDebit: String, accountToCredi
       case Reverse() =>
         Effect.persist(ReversalRequested()).thenRun(_.proceed())
       case _ =>
-        context.log.warn(s"Unhandled $command")
+        context.log.warn(s"Unhandled $command in Pending")
         Effect.none
     }
   }

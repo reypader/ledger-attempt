@@ -6,18 +6,18 @@ import io.openledger.ResultingBalance
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction._
 
-case class Posted(transactionId: String, accountToDebit: String, accountToCredit: String, amountCaptured: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionState {
+case class Posted(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountCaptured: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case ReversalRequested() => RollingBackCredit(transactionId, accountToDebit, accountToCredit, amountCaptured, Some(amountCaptured), None)
+      case ReversalRequested() => RollingBackCredit(entryCode, transactionId, accountToDebit, accountToCredit, amountCaptured, Some(amountCaptured), None)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
-    context.log.info(s"Handling $command")
+    context.log.info(s"Handling $command in Posted")
     command match {
       case Reverse() => Effect.persist(ReversalRequested()).thenRun(_.proceed())
       case _ =>
-        context.log.warn(s"Unhandled $command")
+        context.log.warn(s"Unhandled $command in Posted")
         Effect.none
     }
   }

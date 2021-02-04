@@ -33,7 +33,9 @@ class LedgerSpec
   private val logger: Logger = LoggerFactory.getLogger(classOf[LedgerSpec])
 
   private val txnA = "TXN-A"
+  private val entryA = "ENTRY-A"
   private val txnB = "TXN-B"
+  private val entryB = "ENTRY-B"
   private val accountA = "ACCOUNT-A"
   private val accountB = "ACCOUNT-B"
   private val accountATestKit = EventSourcedBehaviorTestKit[AccountCommand, AccountEvent, AccountState](system, Account(accountA)(stubTransactionMessenger, () => DateUtils.now()))
@@ -116,14 +118,14 @@ class LedgerSpec
     def accountSetup(): Unit = {
       accountATestKit.runCommand(Open(AccountMode.DEBIT))
       accountBTestKit.runCommand(Open(AccountMode.DEBIT))
-      accountATestKit.runCommand(Debit("SETUP-A", 100))
-      accountBTestKit.runCommand(Debit("SETUP-B", 100))
+      accountATestKit.runCommand(Debit("SETUP-A", "SETUP-ENTRY", 100))
+      accountBTestKit.runCommand(Debit("SETUP-B", "SETUP-ENTRY", 100))
     }
 
     "a simple transfer (10) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 10))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 10))
         resultProbe.expectMessageType[TransactionSuccessful]
       }
 
@@ -149,7 +151,7 @@ class LedgerSpec
     "an authorized transfer (10) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 10, authOnly = true))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 10, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
       }
 
@@ -198,7 +200,7 @@ class LedgerSpec
       "allow another authorize (15) followed by a partial capture (5) to A = 120/105/15, B = 95/95/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15, authOnly = true))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
 
         transactionATestKit.runCommand(Capture(5))
@@ -212,7 +214,7 @@ class LedgerSpec
       "allow another authorize (15), reversed, followed by a partial capture (5) to A = 105/105/0, B = 95/95/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15, authOnly = true))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
 
         transactionBTestKit.runCommand(Reverse())
@@ -229,7 +231,7 @@ class LedgerSpec
       "allow another transfer (15) followed by a partial capture (5) to A = 120/120/0, B = 80/80/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15))
         resultProbe.expectMessageType[TransactionSuccessful]
 
         transactionATestKit.runCommand(Capture(5))
@@ -243,7 +245,7 @@ class LedgerSpec
       "allow another transfer (15), reversed, followed by a partial capture (5) to A = 105/105/0, B = 95/95/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15))
         resultProbe.expectMessageType[TransactionSuccessful]
 
         transactionBTestKit.runCommand(Reverse())
@@ -268,7 +270,7 @@ class LedgerSpec
     "a simple transfer (10) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 10))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 10))
         resultProbe.expectMessageType[TransactionFailed]
       }
 
@@ -284,7 +286,7 @@ class LedgerSpec
     "an authorized transfer (10) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 10, authOnly = true))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 10, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
       }
 
@@ -309,14 +311,14 @@ class LedgerSpec
     def accountSetup(): Unit = {
       accountATestKit.runCommand(Open(AccountMode.CREDIT))
       accountBTestKit.runCommand(Open(AccountMode.CREDIT))
-      accountATestKit.runCommand(Credit("SETUP-A", 100))
-      accountBTestKit.runCommand(Credit("SETUP-B", 100))
+      accountATestKit.runCommand(Credit("SETUP-A", "SETUP-ENTRY", 100))
+      accountBTestKit.runCommand(Credit("SETUP-B", "SETUP-ENTRY", 100))
     }
 
     "a simple transfer (10) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 10))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 10))
         resultProbe.expectMessageType[TransactionSuccessful]
       }
 
@@ -342,7 +344,7 @@ class LedgerSpec
     "an authorized transfer (10) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 10, authOnly = true))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 10, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
       }
 
@@ -391,7 +393,7 @@ class LedgerSpec
       "allow another authorize (15) followed by a partial capture (5) to A = 80/95/15, B = 105/105/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15, authOnly = true))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
 
         transactionATestKit.runCommand(Capture(5))
@@ -405,7 +407,7 @@ class LedgerSpec
       "allow another authorize (15), reversed, followed by a partial capture (5) to A = 95/95/0, B = 105/105/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15, authOnly = true))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
 
         transactionBTestKit.runCommand(Reverse())
@@ -422,7 +424,7 @@ class LedgerSpec
       "allow another transfer (15) followed by a partial capture (5) to A = 80/80/0, B = 120/120/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15))
         resultProbe.expectMessageType[TransactionSuccessful]
 
         transactionATestKit.runCommand(Capture(5))
@@ -436,7 +438,7 @@ class LedgerSpec
       "allow another transfer (15), reversed, followed by a partial capture (5) to A = 95/95/0, B = 105/105/0 balance" in {
         transactionSetup()
 
-        transactionBTestKit.runCommand(Begin(accountA, accountB, 15))
+        transactionBTestKit.runCommand(Begin(entryB, accountA, accountB, 15))
         resultProbe.expectMessageType[TransactionSuccessful]
 
         transactionBTestKit.runCommand(Reverse())
@@ -454,7 +456,7 @@ class LedgerSpec
     "an authorized transfer (100) is made" must {
       def transactionSetup(): Unit = {
         accountSetup()
-        transactionATestKit.runCommand(Begin(accountA, accountB, 100, authOnly = true))
+        transactionATestKit.runCommand(Begin(entryA, accountA, accountB, 100, authOnly = true))
         resultProbe.expectMessageType[TransactionPending]
       }
 
@@ -482,7 +484,7 @@ class LedgerSpec
       "stop for illegal states and wait for adjustments" in {
         transactionSetup()
         // Illegal stuff
-        accountATestKit.runCommand(Post("SETUP-A", 10, 0, DateUtils.now()))
+        accountATestKit.runCommand(Post("SETUP-A", "SETUP-ENTRY", 10, 0, DateUtils.now()))
         val preStateA = accountATestKit.runCommand[AccountState](Get)
         preStateA.reply shouldBe CreditAccount(accountA, 0, 90, 90)
 
@@ -491,13 +493,13 @@ class LedgerSpec
         resultProbe.expectNoMessage(10.seconds)
 
         // Adjustments
-        accountATestKit.runCommand(CreditAdjust("SOME-MANUAL", 10))
-        accountATestKit.runCommand(DebitHold("SOME-MANUAL", 10))
+        accountATestKit.runCommand(CreditAdjust("SOME-MANUAL", "MANUAL", 10))
+        accountATestKit.runCommand(DebitHold("SOME-MANUAL", "MANUAL", 10))
         val preStateA2 = accountATestKit.runCommand[AccountState](Get)
         preStateA2.reply shouldBe CreditAccount(accountA, 0, 100, 100)
 
         // Resume
-        transactionATestKit.runCommand(Capture(100))
+        transactionATestKit.runCommand(Resume())
         resultProbe.expectMessageType[TransactionSuccessful]
 
         val stateA = accountATestKit.runCommand[AccountState](Get)

@@ -6,7 +6,7 @@ import io.openledger.LedgerError
 import io.openledger.transaction.Transaction
 import io.openledger.transaction.Transaction.{AccountMessenger, ResultMessenger, TransactionCommand, TransactionFailed}
 
-case class Failed(transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, code: LedgerError.Value) extends TransactionState {
+case class Failed(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, code: LedgerError.Value) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState = this
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = Effect.none
