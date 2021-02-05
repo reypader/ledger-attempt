@@ -25,7 +25,7 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
         val newAvailableBalance = availableBalance - amountToDebit
         val newCurrentBalance = currentBalance - amountToDebit
         if (newAvailableBalance < 0) {
-          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)))
+          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(command.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)))
         } else {
           val events = if (newCurrentBalance < 0) {
             Seq(
@@ -36,7 +36,7 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
             Seq(Debited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
           }
           Effect.persist(events)
-            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
+            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
         }
 
       case DebitAdjust(transactionId, entryCode, amountToDebit) =>
@@ -51,28 +51,28 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
           Seq(Debited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
         }
         Effect.persist(events)
-          .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
+          .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
 
       case Credit(transactionId, entryCode, amountToCredit) =>
         val newAvailableBalance = availableBalance + amountToCredit
         val newCurrentBalance = currentBalance + amountToCredit
         Effect.persist(Credited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
-          .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
+          .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
 
       case CreditAdjust(transactionId, entryCode, amountToCredit) =>
         val newAvailableBalance = availableBalance + amountToCredit
         val newCurrentBalance = currentBalance + amountToCredit
         Effect.persist(Credited(transactionId, entryCode, newAvailableBalance, newCurrentBalance, now()))
-          .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
+          .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, newCurrentBalance, authorizedBalance, now())))
 
       case DebitHold(transactionId, entryCode, amountToHold) =>
         val newAvailableBalance = availableBalance - amountToHold
         val newAuthorizedBalance = authorizedBalance + amountToHold
         if (newAvailableBalance < 0) {
-          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_BALANCE)))
+          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(command.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)))
         } else {
           Effect.persist(DebitAuthorized(transactionId, entryCode, newAvailableBalance, newAuthorizedBalance, now()))
-            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
+            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
         }
 
       case Post(transactionId, entryCode, amountToCapture, amountToRelease, postingTimestamp) =>
@@ -80,7 +80,7 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
         val newCurrentBalance = currentBalance - amountToCapture
         val newAvailableBalance = availableBalance + amountToRelease
         if (newAuthorizedBalance < 0) {
-          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)))
+          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(command.hashCode(), accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)))
         } else {
           val events = if (newCurrentBalance < 0) {
             Seq(
@@ -91,17 +91,17 @@ case class CreditAccount(accountId: String, availableBalance: BigDecimal, curren
             Seq(DebitPosted(transactionId, entryCode, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, postingTimestamp, now()))
           }
           Effect.persist(events)
-            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, now())))
+            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, now())))
         }
 
       case Release(transactionId, entryCode, amountToRelease) =>
         val newAuthorizedBalance = authorizedBalance - amountToRelease
         val newAvailableBalance = availableBalance + amountToRelease
         if (newAuthorizedBalance < 0) {
-          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)))
+          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(command.hashCode(), accountId, LedgerError.INSUFFICIENT_AUTHORIZED_BALANCE)))
         } else {
           Effect.persist(Released(transactionId, entryCode, newAvailableBalance, newAuthorizedBalance, now()))
-            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
+            .thenRun(_ => transactionMessenger(transactionId, AccountingSuccessful(command.hashCode(), accountId, newAvailableBalance, currentBalance, newAuthorizedBalance, now())))
         }
 
       case _ =>

@@ -7,7 +7,7 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.DateUtils.TimeGen
 import io.openledger.domain.account.AccountMode.AccountMode
 import io.openledger.domain.account.states.{AccountState, Ready}
-import io.openledger.{JsonSerializable, LedgerError}
+import io.openledger.{LedgerError, LedgerSerializable}
 
 import java.time.OffsetDateTime
 
@@ -27,19 +27,19 @@ object Account {
         eventHandler = (state, evt) => state.handleEvent(evt))
     }
 
-  sealed trait AccountCommand extends JsonSerializable
+  sealed trait AccountCommand extends LedgerSerializable
 
   sealed trait AccountingCommand extends AccountCommand {
     def transactionId: String
   }
 
-  sealed trait AccountEvent extends JsonSerializable
+  sealed trait AccountEvent extends LedgerSerializable
 
   sealed trait AccountingEvent extends AccountEvent {
     def transactionId: String
   }
 
-  sealed trait AccountingStatus extends JsonSerializable {
+  sealed trait AccountingStatus extends LedgerSerializable {
     def accountId: String
   }
 
@@ -61,9 +61,9 @@ object Account {
 
   final case class Get(replyTo: ActorRef[AccountState]) extends AccountCommand
 
-  final case class AccountingSuccessful(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingStatus
+  final case class AccountingSuccessful(commandHash: Int, accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingStatus
 
-  final case class AccountingFailed(accountId: String, code: LedgerError.Value) extends AccountingStatus
+  final case class AccountingFailed(commandHash: Int, accountId: String, code: LedgerError.Value) extends AccountingStatus
 
   final case class DebitAccountOpened(timestamp: OffsetDateTime) extends AccountEvent
 

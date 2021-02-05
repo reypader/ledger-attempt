@@ -10,6 +10,8 @@ import io.openledger.domain.transaction.Transaction._
 import java.time.OffsetDateTime
 
 case class Posting(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, captureAmount: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
+  private val stateCommand = Account.Post(transactionId, entryCode, captureAmount, amountAuthorized - captureAmount, debitHoldTimestamp)
+
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case DebitPostSucceeded(debitPostedAccountResultingBalance) => Posted(entryCode, transactionId, accountToDebit, accountToCredit, captureAmount, debitPostedAccountResultingBalance, creditedAccountResultingBalance)
@@ -19,9 +21,9 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
     context.log.info(s"Handling $command in Posting")
     command match {
-      case AcceptAccounting(accountId, resultingBalance, timestamp) if accountId == accountToDebit =>
+      case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(DebitPostSucceeded(resultingBalance)).thenRun(_.proceed())
-      case RejectAccounting(accountId, code) if accountId == accountToDebit =>
+      case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(DebitPostFailed()).thenRun(_ => context.log.error(s"ALERT: Posting failed $code for $accountToDebit."))
       case Resume() =>
         Effect.none.thenRun(_ => proceed())
@@ -33,6 +35,6 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Performing Post on $accountToDebit")
-    accountMessenger(accountToDebit, Account.Post(transactionId, entryCode, captureAmount, amountAuthorized - captureAmount, debitHoldTimestamp))
+    accountMessenger(accountToDebit, stateCommand)
   }
 }

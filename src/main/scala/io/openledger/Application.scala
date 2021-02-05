@@ -21,10 +21,10 @@ class Application extends App {
     sharding.init(Entity(TransactionTypeKey)(createBehavior = entityContext => Transaction(entityContext.entityId)(accountMessenger, resultMessenger)))
 
   def transactionMessenger(transactionId: String, message: AccountingStatus): Unit = message match {
-    case AccountingSuccessful(accountId, availableBalance, currentBalance, _, timestamp) =>
-      sharding.entityRefFor(TransactionTypeKey, transactionId) ! AcceptAccounting(accountId, ResultingBalance(availableBalance, currentBalance), timestamp)
-    case AccountingFailed(accountId, code) =>
-      sharding.entityRefFor(TransactionTypeKey, transactionId) ! RejectAccounting(accountId, code)
+    case AccountingSuccessful(cmdHash, accountId, availableBalance, currentBalance, _, timestamp) =>
+      sharding.entityRefFor(TransactionTypeKey, transactionId) ! AcceptAccounting(cmdHash, accountId, ResultingBalance(availableBalance, currentBalance), timestamp)
+    case AccountingFailed(cmdHash, accountId, code) =>
+      sharding.entityRefFor(TransactionTypeKey, transactionId) ! RejectAccounting(cmdHash, accountId, code)
   }
 
   def accountMessenger(accountId: String, message: AccountingCommand): Unit = {

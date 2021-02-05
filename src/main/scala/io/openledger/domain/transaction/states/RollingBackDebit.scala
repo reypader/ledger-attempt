@@ -20,9 +20,9 @@ case class RollingBackDebit(entryCode: String, transactionId: String, accountToD
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = {
     context.log.info(s"Handling $command in RollingBackDebit")
     command match {
-      case AcceptAccounting(accountId, resultingBalance, _) if accountId == accountToDebit =>
+      case AcceptAccounting(originalCommandHash, accountId, resultingBalance, _) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(CreditAdjustmentDone(resultingBalance)).thenRun(_.proceed())
-      case RejectAccounting(accountId, code) if accountId == accountToDebit =>
+      case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(CreditAdjustmentFailed()).thenRun(_ => context.log.error(s"ALERT: CreditAdjustment failed $code for $accountId"))
       case Resume() =>
         Effect.none.thenRun(_ => proceed())
@@ -32,14 +32,15 @@ case class RollingBackDebit(entryCode: String, transactionId: String, accountToD
     }
   }
 
+  private def stateCommand = amountCaptured match {
+    case Some(capturedAmount) =>
+      Account.CreditAdjust(transactionId, entryCode, capturedAmount)
+    case None =>
+      Account.Release(transactionId, entryCode, authorizedAmount)
+  }
+
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
-    amountCaptured match {
-      case Some(capturedAmount) =>
-        context.log.info(s"Performing CreditAdjust on $accountToDebit")
-        accountMessenger(accountToDebit, Account.CreditAdjust(transactionId, entryCode, capturedAmount))
-      case None =>
-        context.log.info(s"Performing Release on $accountToDebit")
-        accountMessenger(accountToDebit, Account.Release(transactionId, entryCode, authorizedAmount))
-    }
+    context.log.info(s"Performing $stateCommand on $accountToDebit")
+    accountMessenger(accountToDebit, stateCommand)
   }
 }

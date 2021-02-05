@@ -6,7 +6,7 @@ import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
 import io.openledger.domain.account.Account.AccountingCommand
 import io.openledger.domain.transaction.states.{Ready, TransactionState}
-import io.openledger.{JsonSerializable, LedgerError, ResultingBalance}
+import io.openledger.{LedgerError, LedgerSerializable, ResultingBalance}
 
 import java.time.OffsetDateTime
 
@@ -24,17 +24,17 @@ object Transaction {
         eventHandler = (state, evt) => state.handleEvent(evt))
     }
 
-  sealed trait TransactionResult extends JsonSerializable
+  sealed trait TransactionResult extends LedgerSerializable
 
-  sealed trait TransactionEvent extends JsonSerializable
+  sealed trait TransactionEvent extends LedgerSerializable
 
-  sealed trait TransactionCommand extends JsonSerializable
+  sealed trait TransactionCommand extends LedgerSerializable
 
   final case class Begin(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean = false) extends TransactionCommand
 
-  final case class AcceptAccounting(accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
+  final case class AcceptAccounting(commandHash: Int, accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
 
-  final case class RejectAccounting(accountId: String, code: LedgerError.Value) extends TransactionCommand
+  final case class RejectAccounting(commandHash: Int, accountId: String, code: LedgerError.Value) extends TransactionCommand
 
   final case class Reverse() extends TransactionCommand
 

@@ -22,7 +22,7 @@ class LedgerSpec
   extends ScalaTestWithActorTestKit(config = ConfigFactory.parseString(
     """
     akka.actor.serialization-bindings {
-        "io.openledger.JsonSerializable" = jackson-json
+        "io.openledger.LedgerSerializable" = jackson-cbor
     }
     """).withFallback(EventSourcedBehaviorTestKit.config))
     with AnyWordSpecLike
@@ -74,10 +74,10 @@ class LedgerSpec
     if (transactionId == txnA) {
       logger.info(s"Sending to Transaction A $message")
       val sendThis = message match {
-        case AccountingSuccessful(accountId, availableBalance, currentBalance, _, timestamp) =>
-          AcceptAccounting(accountId, ResultingBalance(availableBalance, currentBalance), timestamp)
-        case AccountingFailed(accountId, code) =>
-          RejectAccounting(accountId, code)
+        case AccountingSuccessful(cmd, accountId, availableBalance, currentBalance, _, timestamp) =>
+          AcceptAccounting(cmd, accountId, ResultingBalance(availableBalance, currentBalance), timestamp)
+        case AccountingFailed(cmd, accountId, code) =>
+          RejectAccounting(cmd, accountId, code)
       }
       akka.pattern.after(10.millisecond) {
         Future {
@@ -89,10 +89,10 @@ class LedgerSpec
     } else if (transactionId == txnB) {
       logger.info(s"Sending to Transaction B $message")
       val sendThis = message match {
-        case AccountingSuccessful(accountId, availableBalance, currentBalance, _, timestamp) =>
-          AcceptAccounting(accountId, ResultingBalance(availableBalance, currentBalance), timestamp)
-        case AccountingFailed(accountId, code) =>
-          RejectAccounting(accountId, code)
+        case AccountingSuccessful(cmd, accountId, availableBalance, currentBalance, _, timestamp) =>
+          AcceptAccounting(cmd, accountId, ResultingBalance(availableBalance, currentBalance), timestamp)
+        case AccountingFailed(cmd, accountId, code) =>
+          RejectAccounting(cmd, accountId, code)
       }
       akka.pattern.after(10.millisecond) {
         Future {
