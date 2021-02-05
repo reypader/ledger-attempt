@@ -4,13 +4,12 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
-import io.openledger.account.Account
-import io.openledger.account.Account.{AccountingCommand, AccountingFailed, AccountingStatus, AccountingSuccessful}
-import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction.{AcceptAccounting, RejectAccounting, TransactionResult}
+import io.openledger.domain.account.Account
+import io.openledger.domain.account.Account.{AccountingCommand, AccountingFailed, AccountingStatus, AccountingSuccessful}
+import io.openledger.domain.transaction.Transaction
+import io.openledger.domain.transaction.Transaction.{AcceptAccounting, RejectAccounting, TransactionResult}
 
 class Application extends App {
-  //#actor-system
   val system: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "OpenLedger")
   val sharding = ClusterSharding(system)
 

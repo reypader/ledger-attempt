@@ -1,9 +1,9 @@
-package io.openledger.transaction.states
+package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction._
+import io.openledger.domain.transaction.Transaction
+import io.openledger.domain.transaction.Transaction._
 import io.openledger.{LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime

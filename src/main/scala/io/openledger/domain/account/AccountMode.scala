@@ -1,4 +1,4 @@
-package io.openledger.account
+package io.openledger.domain.account
 
 object AccountMode extends Enumeration {
   type AccountMode = Value

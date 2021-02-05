@@ -1,11 +1,11 @@
-package io.openledger.transaction.states
+package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
 import io.openledger.LedgerError
-import io.openledger.account.Account
-import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction._
+import io.openledger.domain.account.Account
+import io.openledger.domain.transaction.Transaction
+import io.openledger.domain.transaction.Transaction._
 
 case class RollingBackDebit(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, authorizedAmount: BigDecimal, amountCaptured: Option[BigDecimal], code: Option[LedgerError.Value]) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =

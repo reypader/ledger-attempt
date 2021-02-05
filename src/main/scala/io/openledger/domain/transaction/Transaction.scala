@@ -1,11 +1,11 @@
-package io.openledger.transaction
+package io.openledger.domain.transaction
 
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
-import io.openledger.account.Account.AccountingCommand
-import io.openledger.transaction.states.{Ready, TransactionState}
+import io.openledger.domain.account.Account.AccountingCommand
+import io.openledger.domain.transaction.states.{Ready, TransactionState}
 import io.openledger.{JsonSerializable, LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime

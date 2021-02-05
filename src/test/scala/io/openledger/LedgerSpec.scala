@@ -3,12 +3,12 @@ package io.openledger
 import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKit}
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
-import io.openledger.account.Account._
-import io.openledger.account.states.{AccountState, CreditAccount, DebitAccount}
-import io.openledger.account.{Account, AccountMode}
-import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction.{apply => _, _}
-import io.openledger.transaction.states.TransactionState
+import io.openledger.domain.account.Account._
+import io.openledger.domain.account.states.{AccountState, CreditAccount, DebitAccount}
+import io.openledger.domain.account.{Account, AccountMode}
+import io.openledger.domain.transaction.Transaction
+import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.domain.transaction.states.TransactionState
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike

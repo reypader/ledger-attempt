@@ -1,10 +1,10 @@
-package io.openledger.transaction.states
+package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
 import io.openledger.ResultingBalance
-import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction._
+import io.openledger.domain.transaction.Transaction
+import io.openledger.domain.transaction.Transaction._
 
 case class Posted(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountCaptured: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =

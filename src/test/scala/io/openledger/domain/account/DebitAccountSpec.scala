@@ -1,10 +1,10 @@
-package io.openledger.account
+package io.openledger.domain.account
 
 import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKit}
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
-import io.openledger.account.Account._
-import io.openledger.account.states.{AccountState, DebitAccount}
+import io.openledger.domain.account.Account._
+import io.openledger.domain.account.states.{AccountState, DebitAccount}
 import io.openledger.{DateUtils, LedgerError}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach

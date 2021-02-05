@@ -1,17 +1,18 @@
-package io.openledger.transaction.states
+package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.transaction.Transaction
-import io.openledger.transaction.Transaction._
+import io.openledger.LedgerError
+import io.openledger.domain.transaction.Transaction
+import io.openledger.domain.transaction.Transaction.{AccountMessenger, ResultMessenger, TransactionCommand, TransactionFailed}
 
-case class Reversed(entryCode: String, transactionId: String) extends TransactionState {
+case class Failed(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, code: LedgerError.Value) extends TransactionState {
   override def handleEvent(event: Transaction.TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState = this
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[Transaction.TransactionEvent, TransactionState] = Effect.none
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
-    context.log.info(s"Announcing result on Reversed")
-    resultMessenger(TransactionReversed())
+    context.log.info(s"Announcing result on Failed")
+    resultMessenger(TransactionFailed(code))
   }
 }

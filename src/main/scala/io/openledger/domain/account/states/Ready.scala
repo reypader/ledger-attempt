@@ -1,10 +1,10 @@
-package io.openledger.account.states
+package io.openledger.domain.account.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
 import io.openledger.DateUtils.TimeGen
-import io.openledger.account.Account._
-import io.openledger.account.AccountMode.{CREDIT, DEBIT}
+import io.openledger.domain.account.Account._
+import io.openledger.domain.account.AccountMode.{CREDIT, DEBIT}
 
 case class Ready(accountId: String) extends AccountState {
   override def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState =

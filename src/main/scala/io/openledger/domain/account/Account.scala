@@ -1,12 +1,12 @@
-package io.openledger.account
+package io.openledger.domain.account
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.DateUtils.TimeGen
-import io.openledger.account.AccountMode.AccountMode
-import io.openledger.account.states.{AccountState, Ready}
+import io.openledger.domain.account.AccountMode.AccountMode
+import io.openledger.domain.account.states.{AccountState, Ready}
 import io.openledger.{JsonSerializable, LedgerError}
 
 import java.time.OffsetDateTime

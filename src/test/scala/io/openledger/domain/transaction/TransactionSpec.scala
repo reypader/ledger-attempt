@@ -1,11 +1,11 @@
-package io.openledger.transaction
+package io.openledger.domain.transaction
 
 import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKit}
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
-import io.openledger.account.Account._
-import io.openledger.transaction.Transaction.{apply => _, _}
-import io.openledger.transaction.states._
+import io.openledger.domain.account.Account._
+import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.domain.transaction.states._
 import io.openledger.{DateUtils, LedgerError, ResultingBalance}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach
