@@ -26,8 +26,12 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
         Effect.persist(DebitPostSucceeded(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(DebitPostFailed()).thenRun(_ => context.log.error(s"ALERT: Posting failed $code for $accountToDebit."))
-      case Resume() =>
-        Effect.none.thenRun(_ => proceed())
+      case Resume(replyTo) =>
+        Effect.none
+          .thenRun { next: TransactionState =>
+            next.proceed()
+            replyTo ! Ack
+          }
       case _ =>
         context.log.warn(s"Unhandled $command in Posting")
         Effect.none

@@ -16,7 +16,11 @@ case class Posted(entryCode: String, transactionId: String, accountToDebit: Stri
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {
     context.log.info(s"Handling $command in Posted")
     command match {
-      case Reverse() => Effect.persist(ReversalRequested()).thenRun(_.proceed())
+      case Reverse(replyTo) => Effect.persist(ReversalRequested())
+        .thenRun { next: TransactionState =>
+          next.proceed()
+          replyTo ! Ack
+        }
       case _ =>
         context.log.warn(s"Unhandled $command in Posted")
         Effect.none

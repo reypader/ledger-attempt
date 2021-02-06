@@ -15,9 +15,12 @@ case class Ready(transactionId: String) extends TransactionState {
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {
     context.log.info(s"Handling $command in Ready")
     command match {
-      case Begin(entryCode, accountToDebit, accountToCredit, amount, authOnly) =>
+      case Begin(entryCode, accountToDebit, accountToCredit, amount, replyTo, authOnly) =>
         Effect.persist(Started(entryCode, accountToDebit, accountToCredit, amount, authOnly))
-          .thenRun(_.proceed())
+          .thenRun { next: TransactionState =>
+            next.proceed()
+            replyTo ! Ack
+          }
       case _ =>
         context.log.warn(s"Unhandled $command in Ready")
         Effect.none

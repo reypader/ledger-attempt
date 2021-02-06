@@ -2,9 +2,9 @@ package io.openledger.domain.account.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
+import io.openledger.AccountingMode.{CREDIT, DEBIT}
 import io.openledger.DateUtils.TimeGen
 import io.openledger.domain.account.Account._
-import io.openledger.AccountingMode.{CREDIT, DEBIT}
 import io.openledger.events._
 
 case class Ready(accountId: String) extends AccountState {

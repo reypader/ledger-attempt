@@ -23,8 +23,12 @@ case class RollingBackCredit(entryCode: String, transactionId: String, accountTo
         Effect.persist(DebitAdjustmentDone(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToCredit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(DebitAdjustmentFailed()).thenRun(_ => context.log.error(s"ALERT: DebitAdjustment failed $code for $accountId"))
-      case Resume() =>
-        Effect.none.thenRun(_ => proceed())
+      case Resume(replyTo) =>
+        Effect.none
+          .thenRun { next: TransactionState =>
+            next.proceed()
+            replyTo ! Ack
+          }
       case _ =>
         context.log.warn(s"Unhandled $command in RollingBackCredit")
         Effect.none

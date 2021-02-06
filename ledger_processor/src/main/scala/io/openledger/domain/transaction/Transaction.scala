@@ -1,7 +1,7 @@
 package io.openledger.domain.transaction
 
-import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.EventSourcedBehavior
 import io.openledger.domain.account.Account.AccountingCommand
@@ -27,21 +27,21 @@ object Transaction {
 
   sealed trait TransactionResult extends LedgerSerializable
 
-
   sealed trait TransactionCommand extends LedgerSerializable
 
-  final case class Begin(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean = false) extends TransactionCommand
+  sealed trait TxnAck
+
+  final case class Begin(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, replyTo: ActorRef[TxnAck], authOnly: Boolean = false) extends TransactionCommand
+
+  final case class Reverse(replyTo: ActorRef[TxnAck]) extends TransactionCommand
+
+  final case class Capture(captureAmount: BigDecimal, replyTo: ActorRef[TxnAck]) extends TransactionCommand
+
+  final case class Resume(replyTo: ActorRef[TxnAck]) extends TransactionCommand
 
   final case class AcceptAccounting(commandHash: Int, accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
 
   final case class RejectAccounting(commandHash: Int, accountId: String, code: LedgerError.Value) extends TransactionCommand
-
-  final case class Reverse() extends TransactionCommand
-
-  final case class Capture(captureAmount: BigDecimal) extends TransactionCommand
-
-  final case class Resume() extends TransactionCommand
-
 
   final case class TransactionSuccessful(debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionResult
 
@@ -52,5 +52,7 @@ object Transaction {
   final case class TransactionPending() extends TransactionResult
 
   final case class CaptureRejected(code: LedgerError.Value) extends TransactionResult
+
+  final case object Ack extends TxnAck
 
 }

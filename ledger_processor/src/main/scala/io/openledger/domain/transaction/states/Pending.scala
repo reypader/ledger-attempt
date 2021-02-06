@@ -19,12 +19,24 @@ case class Pending(entryCode: String, transactionId: String, accountToDebit: Str
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {
     context.log.info(s"Handling $command in Pending")
     command match {
-      case Capture(captureAmount) if captureAmount <= amountAuthorized =>
-        Effect.persist(CaptureRequested(captureAmount)).thenRun(_.proceed())
-      case Capture(captureAmount) if captureAmount > amountAuthorized =>
-        Effect.none.thenRun(_ => resultMessenger(CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED)))
-      case Reverse() =>
-        Effect.persist(ReversalRequested()).thenRun(_.proceed())
+      case Capture(captureAmount, replyTo) if captureAmount <= amountAuthorized =>
+        Effect.persist(CaptureRequested(captureAmount))
+          .thenRun { next: TransactionState =>
+            next.proceed()
+            replyTo ! Ack
+          }
+      case Capture(captureAmount, replyTo) if captureAmount > amountAuthorized =>
+        Effect.none
+          .thenRun { _: TransactionState =>
+            resultMessenger(CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED))
+            replyTo ! Ack
+          }
+      case Reverse(replyTo) =>
+        Effect.persist(ReversalRequested())
+          .thenRun { next: TransactionState =>
+            next.proceed()
+            replyTo ! Ack
+          }
       case _ =>
         context.log.warn(s"Unhandled $command in Pending")
         Effect.none

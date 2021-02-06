@@ -34,7 +34,7 @@ class TransactionSpec
   private val stubResultMessenger = mockFunction[TransactionResult, Unit]
   private val txnId = UUID.randomUUID().toString
   private val entryCode = "ENTRY"
-  private val setupEntryCode = "SETUP-ENTRY"
+  private val ackProbe = testKit.createTestProbe[TxnAck]
   private val accountIdToDebit = UUID.randomUUID().toString
   private val accountIdToCredit = UUID.randomUUID().toString
   private val eventSourcedTestKit = EventSourcedBehaviorTestKit[TransactionCommand, TransactionEvent, TransactionState](system, Transaction(txnId)(stubAccountMessenger, stubResultMessenger))
@@ -59,7 +59,8 @@ class TransactionSpec
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, debitHold) once
         }
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -71,7 +72,8 @@ class TransactionSpec
 
     "Authorizing" must {
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -128,7 +130,8 @@ class TransactionSpec
       val fullPastPost = Post(txnId, entryCode, transactionAmount, BigDecimal(0), holdTime)
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -201,7 +204,8 @@ class TransactionSpec
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -279,7 +283,8 @@ class TransactionSpec
         creditResult.stateOfType[RollingBackDebit].authorizedAmount shouldBe transactionAmount
         creditResult.stateOfType[RollingBackDebit].amountCaptured shouldBe None
 
-        val resumeResult = eventSourcedTestKit.runCommand(Resume())
+        val resumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         resumeResult.hasNoEvents shouldBe true
         resumeResult.stateOfType[RollingBackDebit].code shouldBe Some(LedgerError.INSUFFICIENT_BALANCE.toString)
         resumeResult.stateOfType[RollingBackDebit].accountToDebit shouldBe accountIdToDebit
@@ -306,7 +311,8 @@ class TransactionSpec
       val fullPastPost = Post(txnId, entryCode, transactionAmount, BigDecimal(0), holdTime)
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -393,7 +399,8 @@ class TransactionSpec
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
 
-        val resumeResult = eventSourcedTestKit.runCommand(Resume())
+        val resumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         resumeResult.hasNoEvents shouldBe true
         resumeResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         resumeResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
@@ -422,7 +429,8 @@ class TransactionSpec
       val expectedDebitPostedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -479,7 +487,8 @@ class TransactionSpec
 
         given()
 
-        val reverseResult = eventSourcedTestKit.runCommand(Reverse())
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         reverseResult.events shouldBe Seq(ReversalRequested())
         reverseResult.stateOfType[RollingBackCredit].accountToDebit shouldBe accountIdToDebit
         reverseResult.stateOfType[RollingBackCredit].accountToCredit shouldBe accountIdToCredit
@@ -497,7 +506,8 @@ class TransactionSpec
       val expectedDebitPostedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -538,7 +548,8 @@ class TransactionSpec
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
         postingResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
 
-        val reverseResult = eventSourcedTestKit.runCommand(Reverse())
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         reverseResult.events shouldBe Seq(ReversalRequested())
         reverseResult.stateOfType[RollingBackCredit].accountToDebit shouldBe accountIdToDebit
         reverseResult.stateOfType[RollingBackCredit].accountToCredit shouldBe accountIdToCredit
@@ -605,7 +616,8 @@ class TransactionSpec
         reverseResult.stateOfType[RollingBackCredit].amountCaptured shouldBe Some(transactionAmount)
         reverseResult.stateOfType[RollingBackCredit].code shouldBe None
 
-        val resumeResult = eventSourcedTestKit.runCommand(Resume())
+        val resumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         resumeResult.hasNoEvents shouldBe true
         resumeResult.stateOfType[RollingBackCredit].accountToDebit shouldBe accountIdToDebit
         resumeResult.stateOfType[RollingBackCredit].accountToCredit shouldBe accountIdToCredit
@@ -633,7 +645,8 @@ class TransactionSpec
       val expectedDebitPostedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = false))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -674,7 +687,8 @@ class TransactionSpec
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
         postingResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
 
-        val reverseResult = eventSourcedTestKit.runCommand(Reverse())
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         reverseResult.events shouldBe Seq(ReversalRequested())
         reverseResult.stateOfType[RollingBackCredit].accountToDebit shouldBe accountIdToDebit
         reverseResult.stateOfType[RollingBackCredit].accountToCredit shouldBe accountIdToCredit
@@ -750,7 +764,8 @@ class TransactionSpec
         creditResult.stateOfType[RollingBackDebit].authorizedAmount shouldBe transactionAmount
         creditResult.stateOfType[RollingBackDebit].amountCaptured shouldBe Some(transactionAmount)
 
-        val resumeResult = eventSourcedTestKit.runCommand(Resume())
+        val resumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         resumeResult.hasNoEvents shouldBe true
         resumeResult.stateOfType[RollingBackDebit].code shouldBe None
         resumeResult.stateOfType[RollingBackDebit].accountToDebit shouldBe accountIdToDebit
@@ -768,7 +783,8 @@ class TransactionSpec
     }
     "Authorizing (auth only)" must {
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref, authOnly = true))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -823,7 +839,8 @@ class TransactionSpec
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref, authOnly = true))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -856,7 +873,8 @@ class TransactionSpec
 
         given()
 
-        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount))
+        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         pendingResult.events shouldBe Seq(CaptureRequested(captureAmount))
         pendingResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         pendingResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
@@ -881,7 +899,8 @@ class TransactionSpec
 
         given()
 
-        val debitResult = eventSourcedTestKit.runCommand(Reverse())
+        val debitResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         debitResult.events shouldBe Seq(ReversalRequested())
         debitResult.stateOfType[RollingBackDebit].accountToDebit shouldBe accountIdToDebit
         debitResult.stateOfType[RollingBackDebit].accountToCredit shouldBe accountIdToCredit
@@ -905,7 +924,8 @@ class TransactionSpec
 
         given()
 
-        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount))
+        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         pendingResult.hasNoEvents shouldBe true
         // Nothing should change
         pendingResult.stateOfType[Pending].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
@@ -926,7 +946,8 @@ class TransactionSpec
       val partialPost = Post(txnId, entryCode, captureAmount, transactionAmount - captureAmount, holdTime)
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref, authOnly = true))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -944,7 +965,8 @@ class TransactionSpec
         debitResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Pending].debitHoldTimestamp shouldBe holdTime
 
-        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount))
+        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         pendingResult.events shouldBe Seq(CaptureRequested(captureAmount))
         pendingResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         pendingResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
@@ -1018,7 +1040,8 @@ class TransactionSpec
       val partialPost = Post(txnId, entryCode, captureAmount, transactionAmount - captureAmount, holdTime)
 
       def given(): Unit = {
-        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
+        val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref, authOnly = true))
+        ackProbe.expectMessageType[TxnAck]
         beginResult.events shouldBe Seq(Started(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, authOnly = true))
         beginResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
@@ -1036,7 +1059,8 @@ class TransactionSpec
         debitResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Pending].debitHoldTimestamp shouldBe holdTime
 
-        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount))
+        val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount, ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         pendingResult.events shouldBe Seq(CaptureRequested(captureAmount))
         pendingResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         pendingResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
@@ -1119,7 +1143,8 @@ class TransactionSpec
         creditResult.stateOfType[Posting].captureAmount shouldBe captureAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
 
-        val resumeResult = eventSourcedTestKit.runCommand(Resume())
+        val resumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck]
         resumeResult.hasNoEvents shouldBe true
         resumeResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         resumeResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
