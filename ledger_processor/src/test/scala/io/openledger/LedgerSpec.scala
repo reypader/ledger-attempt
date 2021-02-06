@@ -5,7 +5,7 @@ import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
 import io.openledger.domain.account.Account._
 import io.openledger.domain.account.states.{AccountState, CreditAccount, DebitAccount}
-import io.openledger.domain.account.{Account, AccountMode}
+import io.openledger.domain.account.Account
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
 import io.openledger.domain.transaction.states.TransactionState
@@ -119,8 +119,8 @@ class LedgerSpec
 
   "Two Debit Accounts with A = 100/100/0, B = 100/100/0 balance" when {
     def accountSetup(): Unit = {
-      accountATestKit.runCommand(Open(AccountMode.DEBIT))
-      accountBTestKit.runCommand(Open(AccountMode.DEBIT))
+      accountATestKit.runCommand(Open(AccountingMode.DEBIT))
+      accountBTestKit.runCommand(Open(AccountingMode.DEBIT))
       accountATestKit.runCommand(Debit("SETUP-A", "SETUP-ENTRY", 100))
       accountBTestKit.runCommand(Debit("SETUP-B", "SETUP-ENTRY", 100))
     }
@@ -266,8 +266,8 @@ class LedgerSpec
 
   "Two Debit Accounts with A = 0/0/0, B = 0/0/0 balance" when {
     def accountSetup(): Unit = {
-      accountATestKit.runCommand(Open(AccountMode.DEBIT))
-      accountBTestKit.runCommand(Open(AccountMode.DEBIT))
+      accountATestKit.runCommand(Open(AccountingMode.DEBIT))
+      accountBTestKit.runCommand(Open(AccountingMode.DEBIT))
     }
 
     "a simple transfer (10) is made" must {
@@ -312,8 +312,8 @@ class LedgerSpec
 
   "Two Credit Accounts with A = 100/100/0, B = 100/100/0 balance" when {
     def accountSetup(): Unit = {
-      accountATestKit.runCommand(Open(AccountMode.CREDIT))
-      accountBTestKit.runCommand(Open(AccountMode.CREDIT))
+      accountATestKit.runCommand(Open(AccountingMode.CREDIT))
+      accountBTestKit.runCommand(Open(AccountingMode.CREDIT))
       accountATestKit.runCommand(Credit("SETUP-A", "SETUP-ENTRY", 100))
       accountBTestKit.runCommand(Credit("SETUP-B", "SETUP-ENTRY", 100))
     }

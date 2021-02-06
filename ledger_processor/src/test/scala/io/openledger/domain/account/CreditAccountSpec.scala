@@ -6,7 +6,7 @@ import com.typesafe.config.ConfigFactory
 import io.openledger.domain.account.Account._
 import io.openledger.domain.account.states.{AccountState, CreditAccount}
 import io.openledger.events._
-import io.openledger.{DateUtils, LedgerError}
+import io.openledger.{AccountingMode, DateUtils, LedgerError}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -39,7 +39,7 @@ class CreditAccountSpec
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     eventSourcedTestKit.clear()
-    eventSourcedTestKit.runCommand(Open(AccountMode.CREDIT))
+    eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT))
   }
 
   "A Credit Account" when {

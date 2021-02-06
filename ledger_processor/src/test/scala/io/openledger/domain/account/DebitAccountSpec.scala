@@ -6,7 +6,7 @@ import com.typesafe.config.ConfigFactory
 import io.openledger.domain.account.Account._
 import io.openledger.domain.account.states.{AccountState, DebitAccount}
 import io.openledger.events._
-import io.openledger.{DateUtils, LedgerError}
+import io.openledger.{AccountingMode, DateUtils, LedgerError}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -39,7 +39,7 @@ class DebitAccountSpec
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     eventSourcedTestKit.clear()
-    eventSourcedTestKit.runCommand(Open(AccountMode.DEBIT))
+    eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT))
   }
 
   "A Debit Account" when {
