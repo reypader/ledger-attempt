@@ -63,7 +63,7 @@ class CreditAccountSpec
         val cmd = Credit(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 1, theTime))
+        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 1, 1, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -107,7 +107,7 @@ class CreditAccountSpec
         val cmd = DebitAdjust(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, -1, -1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Debited(txnId, entryCode, -1, -1, theTime), Overdrawn(txnId, entryCode, theTime))
+        result.events shouldBe Seq(Debited(txnId, entryCode, 1, -1, -1, theTime), Overdrawn(txnId, entryCode, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe -1
         result.stateOfType[CreditAccount].currentBalance shouldBe -1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -118,7 +118,7 @@ class CreditAccountSpec
         val cmd = CreditAdjust(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 1, theTime))
+        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 1, 1, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -138,7 +138,7 @@ class CreditAccountSpec
         val cmd = Debit(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 0, 0, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Debited(txnId, entryCode, 0, 0, theTime))
+        result.events shouldBe Seq(Debited(txnId, entryCode, 1, 0, 0, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -149,7 +149,7 @@ class CreditAccountSpec
         val cmd = Credit(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 2, 2, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Credited(txnId, entryCode, 2, 2, theTime))
+        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 2, 2, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 2
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -160,7 +160,7 @@ class CreditAccountSpec
         val cmd = DebitHold(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 0, 1, 1, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(DebitAuthorized(txnId, entryCode, 0, 1, theTime))
+        result.events shouldBe Seq(DebitAuthorized(txnId, entryCode, 1, 0, 1, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
@@ -204,7 +204,7 @@ class CreditAccountSpec
         val cmd = DebitAdjust(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 0, 0, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Debited(txnId, entryCode, 0, 0, theTime))
+        result.events shouldBe Seq(Debited(txnId, entryCode, 1, 0, 0, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -215,7 +215,7 @@ class CreditAccountSpec
         val cmd = CreditAdjust(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 2, 2, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Credited(txnId, entryCode, 2, 2, theTime))
+        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 2, 2, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 2
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -252,7 +252,7 @@ class CreditAccountSpec
         val cmd = Credit(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 2, 1, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 2, theTime))
+        result.events shouldBe Seq(Credited(txnId, entryCode, 1, 1, 2, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 2
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
@@ -276,7 +276,7 @@ class CreditAccountSpec
         val cmd = Post(txnId, entryCode, 1, 0, yesterday)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 0, 0, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(DebitPosted(txnId, entryCode, 0, 0, 0, yesterday, theTime))
+        result.events shouldBe Seq(DebitPosted(txnId, entryCode, 1, 0, 0, 0, 0, yesterday, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
         result.stateOfType[CreditAccount].currentBalance shouldBe 0
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -309,7 +309,7 @@ class CreditAccountSpec
         val cmd = Release(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Released(txnId, entryCode, 1, 0, theTime))
+        result.events shouldBe Seq(Released(txnId, entryCode, 1, 1, 0, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -348,7 +348,7 @@ class CreditAccountSpec
         val cmd = Post(txnId, entryCode, 1, 1, yesterday)
         stubMessenger expects(txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(DebitPosted(txnId, entryCode, 1, 1, 0, yesterday, theTime))
+        result.events shouldBe Seq(DebitPosted(txnId, entryCode, 1, 1, 1, 1, 0, yesterday, theTime))
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
         result.stateOfType[CreditAccount].currentBalance shouldBe 1
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
@@ -359,7 +359,7 @@ class CreditAccountSpec
         val cmd1 = DebitAdjust(txnId, entryCode, 1)
         stubMessenger expects(txnId, AccountingSuccessful(cmd1.hashCode(), accountId, -1, 1, 2, theTime)) once
         val result1 = eventSourcedTestKit.runCommand(cmd1)
-        result1.events shouldBe Seq(Debited(txnId, entryCode, -1, 1, theTime), Overdrawn(txnId, entryCode, theTime))
+        result1.events shouldBe Seq(Debited(txnId, entryCode, 1, -1, 1, theTime), Overdrawn(txnId, entryCode, theTime))
         result1.stateOfType[CreditAccount].availableBalance shouldBe -1
         result1.stateOfType[CreditAccount].currentBalance shouldBe 1
         result1.stateOfType[CreditAccount].authorizedBalance shouldBe 2
@@ -369,7 +369,7 @@ class CreditAccountSpec
         val cmd2 = Post(txnId, entryCode, 2, 0, yesterday)
         stubMessenger expects(txnId, AccountingSuccessful(cmd2.hashCode(), accountId, -1, -1, 0, theTime)) once
         val result2 = eventSourcedTestKit.runCommand(cmd2)
-        result2.events shouldBe Seq(DebitPosted(txnId, entryCode, -1, -1, 0, yesterday, theTime), Overdrawn(txnId, entryCode, theTime))
+        result2.events shouldBe Seq(DebitPosted(txnId, entryCode, 2, 0, -1, -1, 0, yesterday, theTime), Overdrawn(txnId, entryCode, theTime))
         result2.stateOfType[CreditAccount].availableBalance shouldBe -1
         result2.stateOfType[CreditAccount].currentBalance shouldBe -1
         result2.stateOfType[CreditAccount].authorizedBalance shouldBe 0
