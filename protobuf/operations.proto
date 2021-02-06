@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.openledger.grpc";
+option java_outer_classname = "OpenLedgerProto";
+
+package api.transaction;
+
+message TransactionRequest {
+  string entry_code = 1;
+  string transaction_id = 2;
+  string account_to_debit = 3;
+  string account_to_credit = 4;
+  double amount = 5;
+}
+
+message CaptureRequest {
+  string transaction_id = 1;
+  double amount_to_capture = 2;
+}
+
+message ReverseRequest {
+  string transaction_id = 1;
+}
+
+message TransactionResult {
+  string transaction_id = 1;
+  string status = 2;
+  string code = 3;
+}
