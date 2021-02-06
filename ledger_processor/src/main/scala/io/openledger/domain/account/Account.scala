@@ -5,7 +5,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.DateUtils.TimeGen
-import io.openledger.domain.account.AccountMode.AccountMode
+import io.openledger.AccountingMode.AccountMode
 import io.openledger.domain.account.states.{AccountState, Ready}
 import io.openledger.events.AccountEvent
 import io.openledger.{LedgerError, LedgerSerializable}

@@ -1,6 +1,6 @@
-package io.openledger.domain.account
+package io.openledger
 
-object AccountMode extends Enumeration {
+object AccountingMode extends Enumeration {
   type AccountMode = Value
   val DEBIT, CREDIT = Value
 }
