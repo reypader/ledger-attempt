@@ -10,6 +10,7 @@ case class Ready(transactionId: String) extends TransactionState {
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly) => Authorizing(entryCode, transactionId, accountToDebit, accountToCredit, amount, authOnly)
+      case AdjustRequested(entryCode, accountToAdjust, amount, mode) => Adjusting(entryCode, transactionId, accountToAdjust, amount, mode)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {
@@ -17,6 +18,12 @@ case class Ready(transactionId: String) extends TransactionState {
     command match {
       case Begin(entryCode, accountToDebit, accountToCredit, amount, replyTo, authOnly) =>
         Effect.persist(Started(entryCode, accountToDebit, accountToCredit, amount, authOnly))
+          .thenRun { next: TransactionState =>
+            next.proceed()
+            replyTo ! Ack
+          }
+      case Adjust(entryCode, accountToAdjust, amount, mode, replyTo) =>
+        Effect.persist(AdjustRequested(entryCode, accountToAdjust, amount, mode))
           .thenRun { next: TransactionState =>
             next.proceed()
             replyTo ! Ack

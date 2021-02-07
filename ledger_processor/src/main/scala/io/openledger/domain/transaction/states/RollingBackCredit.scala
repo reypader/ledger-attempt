@@ -13,7 +13,7 @@ case class RollingBackCredit(entryCode: String, transactionId: String, accountTo
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case DebitAdjustmentDone(creditReversedResultingBalance) => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, creditedAmount, amountCaptured, code, Some(creditReversedResultingBalance))
-      case DebitAdjustmentFailed() => this
+      case DebitAdjustmentFailed(_) => this
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {
@@ -22,7 +22,7 @@ case class RollingBackCredit(entryCode: String, transactionId: String, accountTo
       case AcceptAccounting(originalCommandHash, accountId, resultingBalance, _) if accountId == accountToCredit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(DebitAdjustmentDone(resultingBalance)).thenRun(_.proceed())
       case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToCredit && originalCommandHash == stateCommand.hashCode() =>
-        Effect.persist(DebitAdjustmentFailed()).thenRun(_ => context.log.error(s"ALERT: DebitAdjustment failed $code for $accountId"))
+        Effect.persist(DebitAdjustmentFailed(code.toString)).thenRun(_ => context.log.error(s"ALERT: DebitAdjustment failed $code for $accountId"))
       case Resume(replyTo) =>
         Effect.none
           .thenRun { next: TransactionState =>

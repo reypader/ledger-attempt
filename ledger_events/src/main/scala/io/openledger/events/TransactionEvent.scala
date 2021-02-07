@@ -1,12 +1,15 @@
 package io.openledger.events
 
 import io.openledger.ResultingBalance
+import io.openledger.AccountingMode.AccountMode
 
 import java.time.OffsetDateTime
 
 sealed trait TransactionEvent
 
 final case class Started(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, authOnly: Boolean) extends TransactionEvent
+
+final case class AdjustRequested(entryCode: String, accountToAdjust: String, amount: BigDecimal, mode: AccountMode) extends TransactionEvent
 
 final case class DebitHoldSucceeded(debitedAccountResultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionEvent
 
@@ -26,8 +29,8 @@ final case class ReversalRequested() extends TransactionEvent
 
 final case class CaptureRequested(captureAmount: BigDecimal) extends TransactionEvent
 
-final case class DebitPostFailed() extends TransactionEvent
+final case class DebitPostFailed(code: String) extends TransactionEvent
 
-final case class CreditAdjustmentFailed() extends TransactionEvent
+final case class CreditAdjustmentFailed(code: String) extends TransactionEvent
 
-final case class DebitAdjustmentFailed() extends TransactionEvent
+final case class DebitAdjustmentFailed(code: String) extends TransactionEvent

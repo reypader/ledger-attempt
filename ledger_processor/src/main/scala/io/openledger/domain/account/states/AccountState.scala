@@ -8,6 +8,12 @@ import io.openledger.domain.account.Account.{AccountCommand, TransactionMessenge
 import io.openledger.events._
 
 trait AccountState extends LedgerSerializable {
+  def accountId: String
+
+  def availableBalance: BigDecimal
+
+  def currentBalance: BigDecimal
+
   def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState
 
   def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState]

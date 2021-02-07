@@ -18,7 +18,7 @@ case class Authorizing(entryCode: String, transactionId: String, accountToDebit:
         } else {
           Crediting(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, amountAuthorized, debitedAccountResultingBalance, timestamp)
         }
-      case DebitHoldFailed(code) => Failed(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, code)
+      case DebitHoldFailed(code) => Failed(entryCode, transactionId, code)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {

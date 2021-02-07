@@ -4,7 +4,7 @@ import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKi
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
 import io.openledger.domain.account.Account
-import io.openledger.domain.account.Account._
+import io.openledger.domain.account.Account.{Get, _}
 import io.openledger.domain.account.states.{AccountState, CreditAccount, DebitAccount}
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
