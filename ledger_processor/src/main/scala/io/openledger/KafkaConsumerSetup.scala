@@ -14,18 +14,18 @@ import com.typesafe.config.Config
 import io.openledger.StreamConsumer._
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
-import io.openledger.operations.TransactionRequest
-import io.openledger.operations.TransactionRequest.Operation
+import io.openledger.kafka_operations.TransactionRequest
+import io.openledger.kafka_operations.TransactionRequest.Operation
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
 object KafkaConsumerSetup {
-  def apply(system: ActorSystem[_], coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) = new KafkaConsumerSetup(system, coordinatedShutdown, consumerActor)
+  def apply(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) = new KafkaConsumerSetup(coordinatedShutdown, consumerActor)
 }
 
-class KafkaConsumerSetup(system: ActorSystem[_], coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {
+class KafkaConsumerSetup(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {
   implicit val shutdownTimeout: Timeout = 10.seconds
   private val resumeOnParsingException: Attributes = ActorAttributes.supervisionStrategy {
     case _: com.google.protobuf.InvalidProtocolBufferException => Supervision.Resume

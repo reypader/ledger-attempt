@@ -5,20 +5,20 @@ import akka.actor.CoordinatedShutdown
 import akka.actor.typed.ActorSystem
 import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Producer
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, RunnableGraph, Source, SourceQueue, SourceQueueWithComplete}
-import akka.stream.{Materializer, OverflowStrategy}
 import io.openledger.domain.transaction.Transaction._
-import io.openledger.operations.TransactionResult.Balance
+import io.openledger.kafka_operations.TransactionResult.Balance
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object KafkaProducerSetup {
-  def apply(system: ActorSystem[_], coordinatedShutdown: CoordinatedShutdown)(implicit executionContext: ExecutionContext, materializer: Materializer) = new KafkaProducerSetup(system, coordinatedShutdown)
+  def apply(coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) = new KafkaProducerSetup(coordinatedShutdown)
 }
 
-class KafkaProducerSetup(system: ActorSystem[_], coordinatedShutdown: CoordinatedShutdown)(implicit executionContext: ExecutionContext, materializer: Materializer) {
+class KafkaProducerSetup(coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) {
   private val config = system.settings.config.getConfig("akka.kafka.producer")
   private val producerSettings =
     ProducerSettings(config, new StringSerializer, new ByteArraySerializer)
@@ -28,20 +28,20 @@ class KafkaProducerSetup(system: ActorSystem[_], coordinatedShutdown: Coordinate
       .queue[TransactionResult](bufferSize = 100, overflowStrategy = OverflowStrategy.backpressure, maxConcurrentOffers = 10) //TODO : Config these
       .map {
         case m@TransactionSuccessful(transactionId, debitedAccountResultingBalance, creditedAccountResultingBalance) =>
-          operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
+          kafka_operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
         case m@TransactionFailed(transactionId, _) =>
-          operations.TransactionResult(transactionId, m.status, m.code, None, None)
+          kafka_operations.TransactionResult(transactionId, m.status, m.code, None, None)
         case m@TransactionReversed(transactionId, debitedAccountResultingBalance, option) =>
           option match {
             case Some(creditedAccountResultingBalance) =>
-              operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
+              kafka_operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
             case None =>
-              operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), None)
+              kafka_operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), None)
           }
         case m@TransactionPending(transactionId, debitedAccountResultingBalance) =>
-          operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), None)
+          kafka_operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), None)
         case m@CaptureRejected(transactionId, _) =>
-          operations.TransactionResult(transactionId, m.status, m.code, None, None)
+          kafka_operations.TransactionResult(transactionId, m.status, m.code, None, None)
       }
       .map(result => new ProducerRecord("", result.transactionId, result.toByteArray)) //TODO config
       .toMat(Producer.plainSink(producerSettings))(Keep.both)

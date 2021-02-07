@@ -2,9 +2,9 @@ syntax = "proto3";
 
 option java_multiple_files = true;
 option java_package = "io.openledger";
-option java_outer_classname = "OpenLedgerOperations";
+option java_outer_classname = "KafkaOperations";
 
-package api.transaction;
+package kafka.operations;
 
 message TransactionRequest {
   oneof operation {
@@ -47,7 +47,7 @@ message TransactionResult {
   Balance debited_account_balance = 4;
   Balance credited_account_balance = 5;
   message Balance {
-    double available_balance = 1;
-    double current_balance = 2;
+    double available = 1;
+    double current = 2;
   }
 }
