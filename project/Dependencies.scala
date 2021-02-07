@@ -9,7 +9,7 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
     "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
     "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
-    "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+    "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion,
     "com.lightbend.akka" %% "akka-persistence-jdbc" % "5.0.0",
     "com.typesafe.slick" %% "slick" % SlickVersion,
     "com.typesafe.slick" %% "slick-hikaricp" % SlickVersion,

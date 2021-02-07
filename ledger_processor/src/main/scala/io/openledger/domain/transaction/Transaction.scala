@@ -25,7 +25,13 @@ object Transaction {
         eventHandler = (state, evt) => state.handleEvent(evt))
     }
 
-  sealed trait TransactionResult extends LedgerSerializable
+  sealed trait TransactionResult extends LedgerSerializable {
+    def status: String
+
+    def code: String
+
+    def transactionId: String
+  }
 
   sealed trait TransactionCommand extends LedgerSerializable
 
@@ -43,15 +49,35 @@ object Transaction {
 
   final case class RejectAccounting(commandHash: Int, accountId: String, code: LedgerError.Value) extends TransactionCommand
 
-  final case class TransactionSuccessful(debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionResult
+  final case class TransactionSuccessful(transactionId: String, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance) extends TransactionResult {
+    override def status = "SUCCESS"
 
-  final case class TransactionFailed(code: LedgerError.Value) extends TransactionResult
+    override def code = "SUCCESS"
+  }
 
-  final case class TransactionReversed() extends TransactionResult
+  final case class TransactionFailed(transactionId: String, errorCode: LedgerError.Value) extends TransactionResult {
+    override def status = "FAILED"
 
-  final case class TransactionPending() extends TransactionResult
+    override def code = errorCode.toString
+  }
 
-  final case class CaptureRejected(code: LedgerError.Value) extends TransactionResult
+  final case class TransactionReversed(transactionId: String, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: Option[ResultingBalance]) extends TransactionResult {
+    override def status = "REVERSED"
+
+    override def code = "REVERSED"
+  }
+
+  final case class TransactionPending(transactionId: String, debitedAccountResultingBalance: ResultingBalance) extends TransactionResult {
+    override def status = "PENDING"
+
+    override def code = "PENDING"
+  }
+
+  final case class CaptureRejected(transactionId: String, errorCode: LedgerError.Value) extends TransactionResult {
+    override def status = "REJECTED"
+
+    override def code = errorCode.toString
+  }
 
   final case object Ack extends TxnAck
 

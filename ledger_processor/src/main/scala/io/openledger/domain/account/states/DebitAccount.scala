@@ -38,7 +38,7 @@ case class DebitAccount(accountId: String, availableBalance: BigDecimal, current
         val newAvailableBalance = availableBalance - amountToCredit
         val newCurrentBalance = currentBalance - amountToCredit
         if (newAvailableBalance < 0) {
-          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(command.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)))
+          Effect.none.thenRun(_ => transactionMessenger(transactionId, AccountingFailed(command.hashCode(), accountId, LedgerError.DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE)))
         } else {
           val events = if (newCurrentBalance < 0) {
             Seq(

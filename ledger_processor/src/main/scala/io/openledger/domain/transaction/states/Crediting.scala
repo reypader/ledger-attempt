@@ -16,7 +16,7 @@ case class Crediting(entryCode: String, transactionId: String, accountToDebit: S
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case CreditSucceeded(creditedAccountResultingBalance) => Posting(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, captureAmount, debitedAccountResultingBalance, creditedAccountResultingBalance, debitHoldTimestamp)
-      case CreditFailed(code) => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, None, Some(code))
+      case CreditFailed(code) => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, None, Some(code), None)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {

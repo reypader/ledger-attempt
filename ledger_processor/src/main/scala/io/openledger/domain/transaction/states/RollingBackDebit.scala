@@ -2,17 +2,18 @@ package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
+import io.openledger.ResultingBalance
 import io.openledger.domain.account.Account
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction._
 import io.openledger.events._
 
-case class RollingBackDebit(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, authorizedAmount: BigDecimal, amountCaptured: Option[BigDecimal], code: Option[String]) extends TransactionState {
+case class RollingBackDebit(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, authorizedAmount: BigDecimal, amountCaptured: Option[BigDecimal], code: Option[String], creditReversedResultingBalance: Option[ResultingBalance]) extends TransactionState {
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case CreditAdjustmentDone(debitedAccountResultingBalance) => code match {
+      case CreditAdjustmentDone(debitReversedResultingBalance) => code match {
         case Some(code) => Failed(entryCode, transactionId, accountToDebit, accountToCredit, authorizedAmount, code)
-        case None => Reversed(entryCode, transactionId)
+        case None => Reversed(entryCode, transactionId, debitReversedResultingBalance, creditReversedResultingBalance)
       }
       case CreditAdjustmentFailed() => this
     }

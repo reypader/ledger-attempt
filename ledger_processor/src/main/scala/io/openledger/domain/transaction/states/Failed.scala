@@ -14,6 +14,6 @@ case class Failed(entryCode: String, transactionId: String, accountToDebit: Stri
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Announcing result on Failed")
-    resultMessenger(TransactionFailed(LedgerError.withName(code)))
+    resultMessenger(TransactionFailed(transactionId, LedgerError.withName(code)))
   }
 }

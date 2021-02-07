@@ -12,7 +12,7 @@ case class RollingBackCredit(entryCode: String, transactionId: String, accountTo
 
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
-      case DebitAdjustmentDone(debitedAccountResultingBalance) => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, creditedAmount, amountCaptured, code)
+      case DebitAdjustmentDone(creditReversedResultingBalance) => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, creditedAmount, amountCaptured, code, Some(creditReversedResultingBalance))
       case DebitAdjustmentFailed() => this
     }
 

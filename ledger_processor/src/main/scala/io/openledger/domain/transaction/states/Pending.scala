@@ -13,7 +13,7 @@ case class Pending(entryCode: String, transactionId: String, accountToDebit: Str
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState =
     event match {
       case CaptureRequested(captureAmount) => Crediting(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, captureAmount, debitedAccountResultingBalance, debitHoldTimestamp)
-      case ReversalRequested() => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, None, None)
+      case ReversalRequested() => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, None, None, None)
     }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState] = {
@@ -28,7 +28,7 @@ case class Pending(entryCode: String, transactionId: String, accountToDebit: Str
       case Capture(captureAmount, replyTo) if captureAmount > amountAuthorized =>
         Effect.none
           .thenRun { _: TransactionState =>
-            resultMessenger(CaptureRejected(LedgerError.CAPTURE_MORE_THAN_AUTHORIZED))
+            resultMessenger(CaptureRejected(transactionId, LedgerError.CAPTURE_MORE_THAN_AUTHORIZED))
             replyTo ! Ack
           }
       case Reverse(replyTo) =>
@@ -45,6 +45,6 @@ case class Pending(entryCode: String, transactionId: String, accountToDebit: Str
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Awaiting Capture on Pending")
-    resultMessenger(TransactionPending())
+    resultMessenger(TransactionPending(transactionId, debitedAccountResultingBalance))
   }
 }

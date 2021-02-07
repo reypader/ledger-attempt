@@ -47,10 +47,10 @@ class CreditAccountSpec
     "at initially 0/0/0 balance" must {
       def given(): Unit = {}
 
-      "reject Debit(uuid, 1) with INSUFFICIENT_BALANCE" in {
+      "reject Debit(uuid, 1) with CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE" in {
         given()
         val cmd = Debit(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
@@ -69,10 +69,10 @@ class CreditAccountSpec
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 0
       }
 
-      "reject DebitHold(uuid, 1) with INSUFFICIENT_BALANCE" in {
+      "reject DebitHold(uuid, 1) with CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE" in {
         given()
         val cmd = DebitHold(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
@@ -166,10 +166,10 @@ class CreditAccountSpec
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
       }
 
-      "reject DebitHold(uuid, 2) with INSUFFICIENT_BALANCE" in {
+      "reject DebitHold(uuid, 2) with CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE" in {
         given()
         val cmd = DebitHold(txnId, entryCode, 2)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 1
@@ -236,10 +236,10 @@ class CreditAccountSpec
         eventSourcedTestKit.runCommand(cmd2)
       }
 
-      "reject Debit(uuid, 1) with INSUFFICIENT_BALANCE" in {
+      "reject Debit(uuid, 1) with CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE" in {
         given()
         val cmd = Debit(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0
@@ -258,10 +258,10 @@ class CreditAccountSpec
         result.stateOfType[CreditAccount].authorizedBalance shouldBe 1
       }
 
-      "reject DebitHold(uuid, 1) with INSUFFICIENT_BALANCE" in {
+      "reject DebitHold(uuid, 1) with CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE" in {
         given()
         val cmd = DebitHold(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[CreditAccount].availableBalance shouldBe 0

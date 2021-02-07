@@ -6,19 +6,6 @@ import akka.actor.typed.{ActorRef, Behavior, RecipientRef}
 import io.openledger.domain.transaction.Transaction.{Ack, TransactionCommand, TxnAck}
 
 object StreamConsumer {
-  private def shuttingDown: Behavior[StreamIncoming] = Behaviors.setup[StreamIncoming] { context =>
-    Behaviors.receiveMessage {
-      case PrepareForShutdown(replyTo) =>
-        context.log.info("Stream drained. Stream Consumer stopping...")
-        replyTo ! Done
-        Behaviors.stopped
-      case _ =>
-        context.log.warn("Received unexpected message while shutting down")
-        Behaviors.same
-
-    }
-  }
-
   def apply(transactionResolver: String => RecipientRef[TransactionCommand]): Behavior[StreamIncoming] =
     Behaviors.withStash(10) { buffer =>
       Behaviors.setup[StreamIncoming] { context =>
@@ -55,6 +42,19 @@ object StreamConsumer {
       }
     }
 
+  private def shuttingDown: Behavior[StreamIncoming] = Behaviors.setup[StreamIncoming] { context =>
+    Behaviors.receiveMessage {
+      case PrepareForShutdown(replyTo) =>
+        context.log.info("Stream drained. Stream Consumer stopping...")
+        replyTo ! Done
+        Behaviors.stopped
+      case _ =>
+        context.log.warn("Received unexpected message while shutting down")
+        Behaviors.same
+
+    }
+  }
+
   sealed trait StreamIncoming
 
   final case class Op(targetTransaction: String, operation: TransactionCommand) extends StreamIncoming
@@ -65,8 +65,8 @@ object StreamConsumer {
 
   final case class PrepareForShutdown(replyTo: ActorRef[Done]) extends StreamIncoming
 
-  final case object StreamCompleted extends StreamIncoming
-
   final case class StreamFailure(ex: Throwable) extends StreamIncoming
+
+  final case object StreamCompleted extends StreamIncoming
 
 }

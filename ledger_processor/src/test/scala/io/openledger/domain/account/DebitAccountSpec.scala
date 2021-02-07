@@ -47,10 +47,10 @@ class DebitAccountSpec
     "at initially 0/0/0 balance" must {
       def given(): Unit = {}
 
-      "reject Credit(uuid, 1) with INSUFFICIENT_BALANCE" in {
+      "reject Credit(uuid, 1) with DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE" in {
         given()
         val cmd = Credit(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.INSUFFICIENT_BALANCE)) once
+        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[DebitAccount].availableBalance shouldBe 0

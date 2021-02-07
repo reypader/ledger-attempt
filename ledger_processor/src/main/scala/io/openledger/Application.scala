@@ -7,10 +7,10 @@ import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
-import akka.kafka.scaladsl.Consumer
-import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
+import akka.kafka.scaladsl.{Consumer, Producer}
+import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings, Subscriptions}
 import akka.stream._
-import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.typed.scaladsl.ActorSink
 import akka.util.Timeout
 import io.openledger.StreamConsumer._
@@ -20,7 +20,9 @@ import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
 import io.openledger.operations.TransactionRequest
 import io.openledger.operations.TransactionRequest.Operation
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
+import io.openledger.operations.TransactionResult.Balance
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -30,13 +32,12 @@ class Application extends App {
   implicit def asFiniteDuration(d: java.time.Duration): FiniteDuration =
     scala.concurrent.duration.Duration.fromNanos(d.toNanos)
 
-  //  val conf = ConfigFactory.defaultApplication()
   implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(Behaviors.setup[SpawnProtocol.Command] { context =>
     SpawnProtocol()
   }, "OpenLedger-Processor")
   implicit val scheduler: Scheduler = system.scheduler
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
-  implicit val askTimeout: Timeout = 10.seconds
+  implicit val askTimeout: Timeout = 10.seconds //TODO : Config these
   val coordinatedShutdown = CoordinatedShutdown(system)
 
   val sharding = ClusterSharding(system)
@@ -48,6 +49,52 @@ class Application extends App {
     sharding.init(Entity(AccountTypeKey)(createBehavior = entityContext => Account(entityContext.entityId)(transactionMessenger, () => DateUtils.now())))
   val transactionShardRegion: ActorRef[ShardingEnvelope[Transaction.TransactionCommand]] =
     sharding.init(Entity(TransactionTypeKey)(createBehavior = entityContext => Transaction(entityContext.entityId)(accountMessenger, resultMessenger)))
+  // Producer Setup
+  val config = system.settings.config.getConfig("akka.kafka.producer")
+  val producerSettings =
+    ProducerSettings(config, new StringSerializer, new ByteArraySerializer)
+      .withBootstrapServers("") // TODO bootstrapServers
+  val producerCompletion: Future[Done] =
+    Source
+      .queue[TransactionResult](bufferSize = 100, overflowStrategy = OverflowStrategy.backpressure, maxConcurrentOffers = 10) //TODO : Config these
+      .map {
+        case m@TransactionSuccessful(transactionId, debitedAccountResultingBalance, creditedAccountResultingBalance) =>
+          operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
+        case m@TransactionFailed(transactionId, _) =>
+          operations.TransactionResult(transactionId, m.status, m.code, None, None)
+        case m@TransactionReversed(transactionId, debitedAccountResultingBalance, option) =>
+          option match {
+            case Some(creditedAccountResultingBalance) =>
+              operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
+            case None =>
+              operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), None)
+          }
+        case m@TransactionPending(transactionId, debitedAccountResultingBalance) =>
+          operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), None)
+        case m@CaptureRejected(transactionId, _) =>
+          operations.TransactionResult(transactionId, m.status, m.code, None, None)
+      } //TODO config
+      .map(result => new ProducerRecord("", result.transactionId, result.toByteArray))
+      .runWith(Producer.plainSink(producerSettings))
+  val resumeOnParsingException = ActorAttributes.supervisionStrategy {
+    case _: com.google.protobuf.InvalidProtocolBufferException => Supervision.Resume
+    case _ => Supervision.Stop
+  }
+  val consumerConfig = system.settings.config.getConfig("akka.kafka.consumer")
+  val consumerSettings: ConsumerSettings[String, Array[Byte]] = ConsumerSettings(
+    config = consumerConfig, //TODO kafka configuration
+    keyDeserializer = new StringDeserializer,
+    valueDeserializer = new ByteArrayDeserializer)
+
+  // Consumer Setup
+  val committerConfig = system.settings.config.getConfig("akka.kafka.committer")
+  val committerSettings = CommitterSettings(
+    config = committerConfig //TODO kafka comitter configuration
+  )
+  val consumerActor: Future[ActorRef[StreamIncoming]] =
+    system.ask(SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id)),
+      name = "StreamConsumer", props = Props.empty, _))
+  val consumerKillSwitch: Future[(Consumer.Control, ActorRef[StreamIncoming])] = for (ref <- consumerActor) yield (prepareIncomingStream(ref), ref)
 
   def transactionMessenger(transactionId: String, message: AccountingStatus): Unit = message match {
     case AccountingSuccessful(cmdHash, accountId, availableBalance, currentBalance, _, timestamp) =>
@@ -63,35 +110,6 @@ class Application extends App {
   def resultMessenger(message: TransactionResult): Unit = {
     //TODO: outgoing (kafka?)
   }
-
-
-  val resumeOnParsingException = ActorAttributes.supervisionStrategy {
-    case _: com.google.protobuf.InvalidProtocolBufferException => Supervision.Resume
-    case _ => Supervision.Stop
-  }
-
-  val consumerConfig = system.settings.config.getConfig("akka.kafka.consumer")
-  val consumerSettings: ConsumerSettings[String, Array[Byte]] = ConsumerSettings(
-    config = consumerConfig, //TODO kafka configuration
-    keyDeserializer = new StringDeserializer,
-    valueDeserializer = new ByteArrayDeserializer)
-
-  val committerConfig = system.settings.config.getConfig("akka.kafka.committer")
-  val committerSettings = CommitterSettings(
-    config = committerConfig //TODO kafka comitter configuration
-  )
-
-  val restartSettings = RestartSettings(
-    minBackoff = 1.second,
-    maxBackoff = 60.seconds,
-    randomFactor = .5
-  )
-
-  val consumerActor: Future[ActorRef[StreamIncoming]] =
-    system.ask(SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id)),
-      name = "StreamConsumer", props = Props.empty, _))
-
-  val consumerKillSwitch: Future[(Consumer.Control, ActorRef[StreamIncoming])] = for (ref <- consumerActor) yield (prepareIncomingStream(ref), ref)
   consumerKillSwitch.onComplete({
     case Success((control, consumer)) => coordinatedShutdown.addTask(CoordinatedShutdown.PhaseBeforeServiceUnbind, "shutdown-incoming") { () =>
       for (

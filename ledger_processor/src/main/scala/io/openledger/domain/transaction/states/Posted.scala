@@ -29,6 +29,6 @@ case class Posted(entryCode: String, transactionId: String, accountToDebit: Stri
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Announcing result on Posted")
-    resultMessenger(TransactionSuccessful(debitedAccountResultingBalance, creditedAccountResultingBalance))
+    resultMessenger(TransactionSuccessful(transactionId, debitedAccountResultingBalance, creditedAccountResultingBalance))
   }
 }

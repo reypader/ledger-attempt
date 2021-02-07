@@ -13,6 +13,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 class StreamConsumerSpec extends ScalaTestWithActorTestKit
   with AnyWordSpecLike
