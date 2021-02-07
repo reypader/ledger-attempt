@@ -37,21 +37,25 @@ object Transaction {
     def transactionId: String
   }
 
+  sealed trait Ackable {
+    def replyTo: ActorRef[TxnAck]
+  }
+
   sealed trait TransactionCommand extends LedgerSerializable
 
   sealed trait TxnAck
 
   final case class Get(replyTo: ActorRef[TransactionState]) extends TransactionCommand
 
-  final case class Adjust(entryCode: String, accountToAdjust: String, amount: BigDecimal, mode: AccountMode, replyTo: ActorRef[TxnAck]) extends TransactionCommand
+  final case class Adjust(entryCode: String, accountToAdjust: String, amount: BigDecimal, mode: AccountMode, replyTo: ActorRef[TxnAck]) extends TransactionCommand with Ackable
 
-  final case class Begin(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, replyTo: ActorRef[TxnAck], authOnly: Boolean = false) extends TransactionCommand
+  final case class Begin(entryCode: String, accountToDebit: String, accountToCredit: String, amount: BigDecimal, replyTo: ActorRef[TxnAck], authOnly: Boolean = false) extends TransactionCommand with Ackable
 
-  final case class Reverse(replyTo: ActorRef[TxnAck]) extends TransactionCommand
+  final case class Reverse(replyTo: ActorRef[TxnAck]) extends TransactionCommand with Ackable
 
-  final case class Capture(captureAmount: BigDecimal, replyTo: ActorRef[TxnAck]) extends TransactionCommand
+  final case class Capture(captureAmount: BigDecimal, replyTo: ActorRef[TxnAck]) extends TransactionCommand with Ackable
 
-  final case class Resume(replyTo: ActorRef[TxnAck]) extends TransactionCommand
+  final case class Resume(replyTo: ActorRef[TxnAck]) extends TransactionCommand with Ackable
 
   final case class AcceptAccounting(commandHash: Int, accountId: String, resultingBalance: ResultingBalance, timestamp: OffsetDateTime) extends TransactionCommand
 
@@ -75,6 +79,12 @@ object Transaction {
     override def code = errorCode.toString
   }
 
+  final case class CommandRejected(transactionId: String, errorCode: LedgerError.Value) extends TransactionResult {
+    override def status = "REJECTED"
+
+    override def code = errorCode.toString
+  }
+
   final case class TransactionReversed(transactionId: String, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: Option[ResultingBalance]) extends TransactionResult {
     override def status = "REVERSED"
 
@@ -94,5 +104,7 @@ object Transaction {
   }
 
   final case object Ack extends TxnAck
+
+  final case object Nack extends TxnAck
 
 }

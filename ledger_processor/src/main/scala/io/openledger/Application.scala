@@ -70,7 +70,7 @@ class Application extends App {
   }
 
   for (
-    consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamIncoming]]) => SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id)), name = "StreamConsumer", props = Props.empty, replyTo))
+    consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamIncoming]]) => SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id), resultMessenger), name = "StreamConsumer", props = Props.empty, replyTo))
   ) yield KafkaConsumerSetup(coordinatedShutdown, consumerActor).run()
 
 }

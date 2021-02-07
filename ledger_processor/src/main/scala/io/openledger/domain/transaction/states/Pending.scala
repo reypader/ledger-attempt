@@ -37,6 +37,13 @@ case class Pending(entryCode: String, transactionId: String, accountToDebit: Str
             next.proceed()
             replyTo ! Ack
           }
+      case ackable: Ackable =>
+        context.log.warn(s"Unhandled Ackable $command in Pending. NACK")
+        Effect.none
+          .thenRun { _ =>
+            ackable.replyTo ! Nack
+            resultMessenger(CommandRejected(transactionId, LedgerError.UNSUPPORTED_OPERATION))
+          }
       case _ =>
         context.log.warn(s"Unhandled $command in Pending")
         Effect.none

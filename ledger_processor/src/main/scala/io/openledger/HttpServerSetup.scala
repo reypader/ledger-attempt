@@ -78,12 +78,14 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
                         adjust.adjustmentType match {
                           case Type.DEBIT =>
                             onSuccess(transactionResolver(adjust.transactionId).ask(Adjust(adjust.entryCode, accountId, adjust.amount, AccountingMode.DEBIT, _))) {
-                              case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly") //TODO: failAck if txn not on Ready?
+                              case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
+                              case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
                             }
 
                           case Type.CREDIT =>
                             onSuccess(transactionResolver(adjust.transactionId).ask(Adjust(adjust.entryCode, accountId, adjust.amount, AccountingMode.CREDIT, _))) {
-                              case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly") //TODO: failAck if txn not on Ready?
+                              case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
+                              case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
                             }
                           case _ => complete(StatusCodes.BadRequest, "Unknown adjustment type.")
                         }

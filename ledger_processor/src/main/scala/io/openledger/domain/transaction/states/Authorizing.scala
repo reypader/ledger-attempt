@@ -2,6 +2,7 @@ package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
+import io.openledger.LedgerError
 import io.openledger.domain.account.Account
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction._
@@ -28,6 +29,13 @@ case class Authorizing(entryCode: String, transactionId: String, accountToDebit:
         Effect.persist(DebitHoldSucceeded(resultingBalance, timestamp)).thenRun(_.proceed())
       case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
         Effect.persist(DebitHoldFailed(code.toString)).thenRun(_.proceed())
+      case ackable: Ackable =>
+        context.log.warn(s"Unhandled Ackable $command in Authorizing. NACK")
+        Effect.none
+          .thenRun { _ =>
+            ackable.replyTo ! Nack
+            resultMessenger(CommandRejected(transactionId, LedgerError.UNSUPPORTED_OPERATION))
+          }
       case _ =>
         context.log.warn(s"Unhandled $command in Authorizing")
         Effect.none

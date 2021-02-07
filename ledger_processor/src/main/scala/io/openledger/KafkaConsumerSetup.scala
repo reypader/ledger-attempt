@@ -12,10 +12,8 @@ import akka.stream.{ActorAttributes, Materializer, Supervision, _}
 import akka.util.Timeout
 import com.typesafe.config.Config
 import io.openledger.StreamConsumer._
-import io.openledger.domain.transaction.Transaction
-import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.domain.transaction.Transaction.{apply => _}
 import io.openledger.kafka_operations.TransactionRequest
-import io.openledger.kafka_operations.TransactionRequest.Operation
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.concurrent.ExecutionContext
@@ -27,6 +25,7 @@ object KafkaConsumerSetup {
 
 class KafkaConsumerSetup(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {
   implicit val shutdownTimeout: Timeout = 10.seconds
+
   private val resumeOnParsingException: Attributes = ActorAttributes.supervisionStrategy {
     case _: com.google.protobuf.InvalidProtocolBufferException => Supervision.Resume
     case _ => Supervision.Stop
@@ -43,23 +42,10 @@ class KafkaConsumerSetup(coordinatedShutdown: CoordinatedShutdown, consumerActor
     .toMat(ActorSink.actorRefWithBackpressure(
       ref = consumerActor,
       onInitMessage = replyTo => StreamInitialized(replyTo),
-      ackMessage = Transaction.Ack,
+      ackMessage = StreamAck,
       onCompleteMessage = StreamCompleted,
       onFailureMessage = ex => StreamFailure(ex),
-      messageAdapter = (replyTo: ActorRef[TxnAck], message: TransactionRequest.Operation) => message match {
-        case Operation.Empty =>
-          NoOp(replyTo)
-        case Operation.Simple(value) =>
-          Op(value.transactionId, Begin(value.entryCode, value.accountToDebit, value.accountToCredit, value.amount, replyTo))
-        case Operation.Authorize(value) =>
-          Op(value.transactionId, Begin(value.entryCode, value.accountToDebit, value.accountToCredit, value.amount, replyTo, authOnly = true))
-        case Operation.Capture(value) =>
-          Op(value.transactionId, Capture(value.amountToCapture, replyTo))
-        case Operation.Reverse(value) =>
-          Op(value.transactionId, Reverse(replyTo))
-        case Operation.Resume(value) =>
-          Op(value.transactionId, Resume(replyTo))
-      }
+      messageAdapter = (replyTo: ActorRef[StreamAck], message: TransactionRequest.Operation) => Op(message, replyTo)
     ))(Keep.left)
 
 

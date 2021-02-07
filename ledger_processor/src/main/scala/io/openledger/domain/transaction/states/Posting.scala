@@ -2,11 +2,11 @@ package io.openledger.domain.transaction.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.ResultingBalance
 import io.openledger.domain.account.Account
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction._
 import io.openledger.events._
+import io.openledger.{LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
@@ -31,6 +31,13 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
           .thenRun { next: TransactionState =>
             next.proceed()
             replyTo ! Ack
+          }
+      case ackable: Ackable =>
+        context.log.warn(s"Unhandled Ackable $command in Posting. NACK")
+        Effect.none
+          .thenRun { _ =>
+            ackable.replyTo ! Nack
+            resultMessenger(CommandRejected(transactionId, LedgerError.UNSUPPORTED_OPERATION))
           }
       case _ =>
         context.log.warn(s"Unhandled $command in Posting")
