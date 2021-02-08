@@ -23,11 +23,6 @@ import scala.util.{Failure, Success}
 class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResolver: String => RecipientRef[TransactionCommand], accountResolver: String => RecipientRef[AccountCommand])(implicit system: ActorSystem[_], executionContext: ExecutionContext) extends JsonSupport {
   implicit val httpRequestTimeout: Timeout = 15.seconds
 
-  val route: Route =
-    concat {
-      path("accounts")(accountRoutes)
-    }
-
   val accountRoutes: Route =
     concat {
       pathEnd {
@@ -57,9 +52,9 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
               case Failure(exception) =>
                 failWith(exception)
               case Success(value) => value match {
-                case CreditAccount(_, availableBalance, currentBalance, authorizedBalance) =>
+                case CreditAccount(_, availableBalance, currentBalance, _) =>
                   complete(StatusCodes.OK, AccountResponse(accountId, Type.DEBIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue))))
-                case DebitAccount(_, availableBalance, currentBalance, authorizedBalance) =>
+                case DebitAccount(_, availableBalance, currentBalance, _) =>
                   complete(StatusCodes.OK, AccountResponse(accountId, Type.CREDIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue))))
                 case _ =>
                   complete(StatusCodes.NotFound, "Account Not Found")
@@ -100,6 +95,11 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
           }
         }
       }
+    }
+
+  val route: Route =
+    concat {
+      path("accounts")(accountRoutes)
     }
 
 

@@ -80,7 +80,7 @@ object Transaction {
 
   final case class RejectAccounting(commandHash: Int, accountId: String, code: LedgerError.Value) extends TransactionCommand
 
-  final case class AdjustmentSuccessful(transactionId: String, resultingBalance: ResultingBalance) extends TransactionResult {
+  final case class AdjustmentSuccessful(transactionId: String, mode: AccountMode, resultingBalance: ResultingBalance) extends TransactionResult {
     override def status = "SUCCESS"
 
     override def code = "SUCCESS"

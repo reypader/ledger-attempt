@@ -15,6 +15,6 @@ case class Adjusted(entryCode: String, transactionId: String, accountToAdjust: S
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Announcing result on Adjusted")
-    resultMessenger(AdjustmentSuccessful(transactionId, resultingBalance))
+    resultMessenger(AdjustmentSuccessful(transactionId, mode, resultingBalance))
   }
 }

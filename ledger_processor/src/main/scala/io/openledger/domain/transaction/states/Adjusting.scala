@@ -27,15 +27,15 @@ case class Adjusting(entryCode: String, transactionId: String, accountToAdjust: 
       Effect.persist(CreditAdjustmentFailed(code.toString)).thenRun(_.proceed())
   }
 
+  override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
+    context.log.info(s"Performing $mode Adjustment on $accountToAdjust")
+    accountMessenger(accountToAdjust, stateCommand)
+  }
+
   private def stateCommand = mode match {
     case CREDIT =>
       Account.CreditAdjust(transactionId, entryCode, amount)
     case DEBIT =>
       Account.DebitAdjust(transactionId, entryCode, amount)
-  }
-
-  override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
-    context.log.info(s"Performing $mode Adjustment on $accountToAdjust")
-    accountMessenger(accountToAdjust, stateCommand)
   }
 }

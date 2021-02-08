@@ -2,12 +2,12 @@ package io.openledger
 
 import akka.Done
 import akka.actor.CoordinatedShutdown
-import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.{ActorRef, ActorSystem, _}
-import akka.kafka.scaladsl.Consumer
-import akka.kafka.{ConsumerSettings, Subscriptions}
-import akka.stream.scaladsl.{Keep, RunnableGraph}
-import akka.stream.typed.scaladsl.ActorSink
+import akka.kafka.scaladsl.Consumer.DrainingControl
+import akka.kafka.scaladsl.{Committer, Consumer}
+import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
+import akka.stream.scaladsl.RunnableGraph
+import akka.stream.typed.scaladsl.ActorFlow
 import akka.stream.{ActorAttributes, Materializer, Supervision, _}
 import akka.util.Timeout
 import com.typesafe.config.Config
@@ -20,10 +20,10 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
 object KafkaConsumerSetup {
-  def apply(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) = new KafkaConsumerSetup(coordinatedShutdown, consumerActor)
+  def apply(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamOp])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) = new KafkaConsumerSetup(coordinatedShutdown, consumerActor)
 }
 
-class KafkaConsumerSetup(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamIncoming])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {
+class KafkaConsumerSetup(coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamOp])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {
   implicit val shutdownTimeout: Timeout = 10.seconds
 
   private val resumeOnParsingException: Attributes = ActorAttributes.supervisionStrategy {
@@ -36,27 +36,22 @@ class KafkaConsumerSetup(coordinatedShutdown: CoordinatedShutdown, consumerActor
     keyDeserializer = new StringDeserializer,
     valueDeserializer = new ByteArrayDeserializer)
 
-  private val consumerFlow: RunnableGraph[Consumer.Control] = Consumer.plainSource(consumerSettings, Subscriptions.topics("")) //TODO topics
-    .map(consumerRecord => TransactionRequest.parseFrom(consumerRecord.value()).operation)
+  private val committerConfig: Config = system.settings.config.getConfig("akka.kafka.committer")
+  private val committerSettings: CommitterSettings = CommitterSettings(
+    config = committerConfig)
+
+
+  private val consumerFlow: RunnableGraph[DrainingControl[Done]] = Consumer.committableSource(consumerSettings, Subscriptions.topics("")) //TODO topics
+    .map(consumerRecord => StreamMessage(TransactionRequest.parseFrom(consumerRecord.record.value()).operation, consumerRecord.committableOffset))
     .withAttributes(resumeOnParsingException)
-    .toMat(ActorSink.actorRefWithBackpressure(
-      ref = consumerActor,
-      onInitMessage = replyTo => StreamInitialized(replyTo),
-      ackMessage = StreamAck,
-      onCompleteMessage = StreamCompleted,
-      onFailureMessage = ex => StreamFailure(ex),
-      messageAdapter = (replyTo: ActorRef[StreamAck], message: TransactionRequest.Operation) => Op(message, replyTo)
-    ))(Keep.left)
+    .via(ActorFlow.ask(consumerActor)((wrapper, replyTo) => Receive(wrapper, replyTo)))
+    .toMat(Committer.sink(committerSettings))(DrainingControl.apply)
 
 
   def run(): Unit = {
-    val control: Consumer.Control = consumerFlow.run()
+    val control: DrainingControl[Done] = consumerFlow.run()
     coordinatedShutdown.addTask(CoordinatedShutdown.PhaseBeforeServiceUnbind, "shutdown-incoming-kafka") { () =>
-      for (
-        _ <- control.stop();
-        _ <- consumerActor.ask(PrepareForShutdown);
-        _ <- control.shutdown()
-      ) yield Done
+      control.drainAndShutdown()
     }
   }
 }

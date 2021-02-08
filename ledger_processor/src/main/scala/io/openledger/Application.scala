@@ -6,9 +6,9 @@ import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
 import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
-import akka.stream.QueueOfferResult
+import akka.stream.{QueueCompletionResult, QueueOfferResult}
 import akka.util.Timeout
-import io.openledger.StreamConsumer.StreamIncoming
+import io.openledger.StreamConsumer.StreamOp
 import io.openledger.domain.account.Account
 import io.openledger.domain.account.Account._
 import io.openledger.domain.transaction.Transaction
@@ -16,6 +16,7 @@ import io.openledger.domain.transaction.Transaction.{apply => _, _}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.language.implicitConversions
 import scala.util.{Failure, Success}
 
 //TODO: unexpected TransactionCommand on each state must fail
@@ -60,6 +61,8 @@ class Application extends App {
   def resultMessenger(message: TransactionResult): Unit = {
     producerQueue.offer(message).onComplete {
       case Success(value) => value match {
+        case result: QueueCompletionResult =>
+        //TODO: Log
         case QueueOfferResult.Enqueued =>
         //TODO: Log
         case QueueOfferResult.Dropped =>
@@ -70,7 +73,7 @@ class Application extends App {
   }
 
   for (
-    consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamIncoming]]) => SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id), resultMessenger), name = "StreamConsumer", props = Props.empty, replyTo))
+    consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamOp]]) => SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id), resultMessenger), name = "StreamConsumer", props = Props.empty, replyTo))
   ) yield KafkaConsumerSetup(coordinatedShutdown, consumerActor).run()
 
 }

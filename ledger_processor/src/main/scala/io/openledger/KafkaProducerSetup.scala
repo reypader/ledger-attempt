@@ -27,9 +27,18 @@ class KafkaProducerSetup(coordinatedShutdown: CoordinatedShutdown)(implicit syst
     Source
       .queue[TransactionResult](bufferSize = 100, overflowStrategy = OverflowStrategy.backpressure, maxConcurrentOffers = 10) //TODO : Config these
       .map {
+        case m@AdjustmentSuccessful(transactionId, mode, adjustedBalance) =>
+          mode match {
+            case AccountingMode.DEBIT =>
+              kafka_operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(adjustedBalance.availableBalance.doubleValue, adjustedBalance.currentBalance.doubleValue)), None)
+            case AccountingMode.CREDIT =>
+              kafka_operations.TransactionResult(transactionId, m.status, m.code, None, Some(Balance(adjustedBalance.availableBalance.doubleValue, adjustedBalance.currentBalance.doubleValue)))
+          }
         case m@TransactionSuccessful(transactionId, debitedAccountResultingBalance, creditedAccountResultingBalance) =>
           kafka_operations.TransactionResult(transactionId, m.status, m.code, Some(Balance(debitedAccountResultingBalance.availableBalance.doubleValue, debitedAccountResultingBalance.currentBalance.doubleValue)), Some(Balance(creditedAccountResultingBalance.availableBalance.doubleValue, creditedAccountResultingBalance.currentBalance.doubleValue)))
         case m@TransactionFailed(transactionId, _) =>
+          kafka_operations.TransactionResult(transactionId, m.status, m.code, None, None)
+        case m@CommandRejected(transactionId, _) =>
           kafka_operations.TransactionResult(transactionId, m.status, m.code, None, None)
         case m@TransactionReversed(transactionId, debitedAccountResultingBalance, option) =>
           option match {

@@ -116,7 +116,7 @@ class TransactionSpec
         inSequence {
           stubAccountMessenger expects(accountIdToCredit, creditAdjust) once
 
-          stubResultMessenger expects AdjustmentSuccessful(txnId, expectedAdjustmentBalance) once
+          stubResultMessenger expects AdjustmentSuccessful(txnId, AccountingMode.CREDIT, expectedAdjustmentBalance) once
         }
 
         given()
@@ -166,7 +166,7 @@ class TransactionSpec
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, debitAdjust) once
 
-          stubResultMessenger expects AdjustmentSuccessful(txnId, expectedAdjustmentBalance) once
+          stubResultMessenger expects AdjustmentSuccessful(txnId, AccountingMode.DEBIT, expectedAdjustmentBalance) once
         }
 
         given()
