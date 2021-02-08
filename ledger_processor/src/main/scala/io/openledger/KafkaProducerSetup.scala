@@ -7,25 +7,25 @@ import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Producer
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, RunnableGraph, Source, SourceQueue, SourceQueueWithComplete}
+import io.openledger.KafkaProducerSetup.KafkaProducerSettings
 import io.openledger.domain.transaction.Transaction._
 import io.openledger.kafka_operations.TransactionResult.Balance
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.serialization.{ByteArraySerializer, StringSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object KafkaProducerSetup {
-  def apply(coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) = new KafkaProducerSetup(coordinatedShutdown)
+
+  case class KafkaProducerSettings(topic: String, bufferSize: Int, kafkaProducerSettings: ProducerSettings[String, Array[Byte]])
+
+  def apply(settings: KafkaProducerSettings, coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) = new KafkaProducerSetup(settings, coordinatedShutdown)
 }
 
-class KafkaProducerSetup(coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) {
-  private val config = system.settings.config.getConfig("akka.kafka.producer")
-  private val producerSettings =
-    ProducerSettings(config, new StringSerializer, new ByteArraySerializer)
-      .withBootstrapServers("") // TODO bootstrapServers
+class KafkaProducerSetup(settings: KafkaProducerSettings, coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) {
+
   private val outboundFlow: RunnableGraph[(SourceQueueWithComplete[TransactionResult], Future[Done])] =
     Source
-      .queue[TransactionResult](bufferSize = 100, overflowStrategy = OverflowStrategy.backpressure, maxConcurrentOffers = 10) //TODO : Config these
+      .queue[TransactionResult](bufferSize = settings.bufferSize, overflowStrategy = OverflowStrategy.backpressure, maxConcurrentOffers = math.max(settings.bufferSize / 10, 1))
       .map {
         case m@AdjustmentSuccessful(transactionId, mode, adjustedBalance) =>
           mode match {
@@ -52,8 +52,8 @@ class KafkaProducerSetup(coordinatedShutdown: CoordinatedShutdown)(implicit syst
         case m@CaptureRejected(transactionId, _) =>
           kafka_operations.TransactionResult(transactionId, m.status, m.code, None, None)
       }
-      .map(result => new ProducerRecord("", result.transactionId, result.toByteArray)) //TODO config
-      .toMat(Producer.plainSink(producerSettings))(Keep.both)
+      .map(result => new ProducerRecord(settings.topic, result.transactionId, result.toByteArray))
+      .toMat(Producer.plainSink(settings.kafkaProducerSettings))(Keep.both)
 
   def run(): SourceQueue[TransactionResult] = {
     val (producerQueue, producerCompletion): (SourceQueueWithComplete[TransactionResult], Future[Done]) = outboundFlow.run()

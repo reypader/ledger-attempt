@@ -30,8 +30,8 @@ object Transaction {
               actorContext.log.warn(s"Unhandled Ackable $ackable. Rejecting...")
               Effect.none
                 .thenRun { _ =>
-                  ackable.replyTo ! Nack
                   resultMessenger(CommandRejected(transactionId, LedgerError.UNSUPPORTED_TRANSACTION_OPERATION_ON_CURRENT_STATE))
+                  ackable.replyTo ! Nack
                 }
             case _ =>
               actorContext.log.warn(s"Unhandled command $cmd")
