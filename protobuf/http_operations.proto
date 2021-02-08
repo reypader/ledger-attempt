@@ -12,6 +12,7 @@ enum Type {
 message OpenAccountRequest {
   Type account_type = 1;
   string account_id = 2;
+  repeated string accounting_tags = 3;
 }
 
 message AdjustRequest {
@@ -25,6 +26,7 @@ message AccountResponse {
   string id = 1;
   Type type = 2;
   Balance balance = 3;
+  repeated string accounting_tags = 4;
   message Balance {
     double available = 1;
     double current = 2;
