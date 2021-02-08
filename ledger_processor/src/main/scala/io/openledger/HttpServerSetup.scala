@@ -35,7 +35,7 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
                   failWith(exception)
                 case Success(value) => value match {
                   case Ready(accountId) =>
-                    ref ! Account.Open(AccountingMode.withName(open.accountType.name))
+                    ref ! Account.Open(AccountingMode.withName(open.accountType.name), open.accountingTags.toSet)
                     complete(StatusCodes.Accepted, s"Account Opening request accepted. Account $accountId will be ready shortly.")
                   case _ =>
                     complete(StatusCodes.Conflict, "Account already exists")
@@ -52,10 +52,10 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
               case Failure(exception) =>
                 failWith(exception)
               case Success(value) => value match {
-                case CreditAccount(_, availableBalance, currentBalance, _) =>
-                  complete(StatusCodes.OK, AccountResponse(accountId, Type.DEBIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue))))
-                case DebitAccount(_, availableBalance, currentBalance, _) =>
-                  complete(StatusCodes.OK, AccountResponse(accountId, Type.CREDIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue))))
+                case CreditAccount(_, availableBalance, currentBalance, _, tags) =>
+                  complete(StatusCodes.OK, AccountResponse(accountId, Type.DEBIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue)), tags.toSeq))
+                case DebitAccount(_, availableBalance, currentBalance, _, tags) =>
+                  complete(StatusCodes.OK, AccountResponse(accountId, Type.CREDIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue)), tags.toSeq))
                 case _ =>
                   complete(StatusCodes.NotFound, "Account Not Found")
               }

@@ -39,7 +39,7 @@ class CreditAccountSpec
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     eventSourcedTestKit.clear()
-    eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT))
+    eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT, Set.empty))
   }
 
   "A Credit Account" when {

@@ -16,9 +16,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object KafkaProducerSetup {
 
-  case class KafkaProducerSettings(topic: String, bufferSize: Int, kafkaProducerSettings: ProducerSettings[String, Array[Byte]])
-
   def apply(settings: KafkaProducerSettings, coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) = new KafkaProducerSetup(settings, coordinatedShutdown)
+
+  case class KafkaProducerSettings(topic: String, bufferSize: Int, kafkaProducerSettings: ProducerSettings[String, Array[Byte]])
 }
 
 class KafkaProducerSetup(settings: KafkaProducerSettings, coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) {

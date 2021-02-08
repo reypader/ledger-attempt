@@ -42,17 +42,17 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
   "A Ready Account" when {
     "opened" must {
       "become a DebitAccount" in {
-        eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT))
+        eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT, Set("A", "B")))
 
         val state = eventSourcedTestKit.runCommand[AccountState](Get)
-        state.reply shouldBe DebitAccount(accountId, 0, 0, 0)
+        state.reply shouldBe DebitAccount(accountId, 0, 0, 0, Set("A", "B"))
       }
 
       "become a CreditAccount" in {
-        eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT))
+        eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT, Set("A", "B")))
 
         val state = eventSourcedTestKit.runCommand[AccountState](Get)
-        state.reply shouldBe CreditAccount(accountId, 0, 0, 0)
+        state.reply shouldBe CreditAccount(accountId, 0, 0, 0, Set("A", "B"))
       }
     }
     "given any AccountingCommand" must {

@@ -8,9 +8,9 @@ sealed trait AccountingEvent extends AccountEvent {
   def transactionId: String
 }
 
-final case class DebitAccountOpened(timestamp: OffsetDateTime) extends AccountEvent
+final case class DebitAccountOpened(timestamp: OffsetDateTime, accountingTags: Set[String]) extends AccountEvent
 
-final case class CreditAccountOpened(timestamp: OffsetDateTime) extends AccountEvent
+final case class CreditAccountOpened(timestamp: OffsetDateTime, accountingTags: Set[String]) extends AccountEvent
 
 final case class Debited(transactionId: String, entryCode: String, amount: BigDecimal, newAvailableBalance: BigDecimal, newCurrentBalance: BigDecimal, timestamp: OffsetDateTime) extends AccountingEvent
 

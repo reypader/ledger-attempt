@@ -39,7 +39,7 @@ class DebitAccountSpec
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     eventSourcedTestKit.clear()
-    eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT))
+    eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
   }
 
   "A Debit Account" when {

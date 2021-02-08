@@ -7,7 +7,7 @@ import io.openledger.LedgerError
 import io.openledger.domain.account.Account._
 import io.openledger.events._
 
-case class DebitAccount(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal) extends AccountState {
+case class DebitAccount(accountId: String, availableBalance: BigDecimal, currentBalance: BigDecimal, authorizedBalance: BigDecimal, accountingTags: Set[String]) extends AccountState {
   override def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): PartialFunction[AccountEvent, AccountState] = {
     case Debited(_, _, _, newAvailableBalance, newCurrentBalance, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)
     case Credited(_, _, _, newAvailableBalance, newCurrentBalance, _) => copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)

@@ -19,9 +19,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object KafkaConsumerSetup {
 
-  case class KafkaConsumerSettings(processingTimeout: FiniteDuration, messagePerSecond: Int, topics: Set[String], kafkaSourceSettings: ConsumerSettings[String, Array[Byte]], kafkaComitterSettings: CommitterSettings)
-
   def apply(settings: KafkaConsumerSettings, coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamOp])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) = new KafkaConsumerSetup(settings, coordinatedShutdown, consumerActor)
+
+  case class KafkaConsumerSettings(processingTimeout: FiniteDuration, messagePerSecond: Int, topics: Set[String], kafkaSourceSettings: ConsumerSettings[String, Array[Byte]], kafkaComitterSettings: CommitterSettings)
 }
 
 class KafkaConsumerSetup(settings: KafkaConsumerSettings, coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamOp])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {

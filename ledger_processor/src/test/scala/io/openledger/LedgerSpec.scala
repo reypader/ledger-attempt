@@ -120,8 +120,8 @@ class LedgerSpec
 
   "Two Debit Accounts with A = 100/100/0, B = 100/100/0 balance" when {
     def accountSetup(): Unit = {
-      accountATestKit.runCommand(Open(AccountingMode.DEBIT))
-      accountBTestKit.runCommand(Open(AccountingMode.DEBIT))
+      accountATestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
+      accountBTestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
       accountATestKit.runCommand(Debit("SETUP-A", "SETUP-ENTRY", 100))
       accountBTestKit.runCommand(Debit("SETUP-B", "SETUP-ENTRY", 100))
     }
@@ -137,9 +137,9 @@ class LedgerSpec
       "result in A = 110/110/0, B = 90/90/0" in {
         transactionSetup()
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 110, 110, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 110, 110, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 90, 90, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 90, 90, 0, Set.empty)
       }
 
       "be reversed back to A = 100/100/0, B = 100/100/0 balance" in {
@@ -148,9 +148,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionReversed]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 100, 100, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 100, 100, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 100, 100, 0, Set.empty)
       }
     }
 
@@ -165,9 +165,9 @@ class LedgerSpec
       "result in A = 110/100/10, B = 100/100/0" in {
         transactionSetup()
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 110, 100, 10)
+        stateA.reply shouldBe DebitAccount(accountA, 110, 100, 10, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 100, 100, 0, Set.empty)
       }
 
       "be reversed back to A = 100/100/0, B = 100/100/0 balance" in {
@@ -176,9 +176,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionReversed]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 100, 100, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 100, 100, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 100, 100, 0, Set.empty)
       }
 
       "be partially captured (5) to A = 105/105/0, B = 95/95/0 balance" in {
@@ -187,9 +187,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0, Set.empty)
       }
 
       "not react to over-capture and then partially captured (5) to A = 105/105/0, B = 95/95/0 balance" in {
@@ -203,9 +203,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0, Set.empty)
       }
 
       "allow another authorize (15) followed by a partial capture (5) to A = 120/105/15, B = 95/95/0 balance" in {
@@ -219,9 +219,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 120, 105, 15)
+        stateA.reply shouldBe DebitAccount(accountA, 120, 105, 15, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0, Set.empty)
       }
 
       "allow another authorize (15), reversed, followed by a partial capture (5) to A = 105/105/0, B = 95/95/0 balance" in {
@@ -239,9 +239,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0, Set.empty)
       }
 
       "allow another transfer (15) followed by a partial capture (5) to A = 120/120/0, B = 80/80/0 balance" in {
@@ -255,9 +255,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 120, 120, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 120, 120, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 80, 80, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 80, 80, 0, Set.empty)
       }
 
       "allow another transfer (15), reversed, followed by a partial capture (5) to A = 105/105/0, B = 95/95/0 balance" in {
@@ -275,17 +275,17 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 105, 105, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 95, 95, 0, Set.empty)
       }
     }
   }
 
   "Two Debit Accounts with A = 0/0/0, B = 0/0/0 balance" when {
     def accountSetup(): Unit = {
-      accountATestKit.runCommand(Open(AccountingMode.DEBIT))
-      accountBTestKit.runCommand(Open(AccountingMode.DEBIT))
+      accountATestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
+      accountBTestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
     }
 
     "a simple transfer (10) is made" must {
@@ -299,9 +299,9 @@ class LedgerSpec
       "result in INSUFFICIENT_BALANCE for B, and reverse to A = 0/0/0, B = 0/0/0" in {
         transactionSetup()
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 0, 0, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 0, 0, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 0, 0, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 0, 0, 0, Set.empty)
       }
     }
 
@@ -322,9 +322,9 @@ class LedgerSpec
         resultProbe.expectMessageType[TransactionFailed]
 
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe DebitAccount(accountA, 0, 0, 0)
+        stateA.reply shouldBe DebitAccount(accountA, 0, 0, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe DebitAccount(accountB, 0, 0, 0)
+        stateB.reply shouldBe DebitAccount(accountB, 0, 0, 0, Set.empty)
       }
 
 
@@ -333,8 +333,8 @@ class LedgerSpec
 
   "Two Credit Accounts with A = 100/100/0, B = 100/100/0 balance" when {
     def accountSetup(): Unit = {
-      accountATestKit.runCommand(Open(AccountingMode.CREDIT))
-      accountBTestKit.runCommand(Open(AccountingMode.CREDIT))
+      accountATestKit.runCommand(Open(AccountingMode.CREDIT, Set.empty))
+      accountBTestKit.runCommand(Open(AccountingMode.CREDIT, Set.empty))
       accountATestKit.runCommand(Credit("SETUP-A", "SETUP-ENTRY", 100))
       accountBTestKit.runCommand(Credit("SETUP-B", "SETUP-ENTRY", 100))
     }
@@ -350,9 +350,9 @@ class LedgerSpec
       "result in A = 90/90/0, B = 110/110/0" in {
         transactionSetup()
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 90, 90, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 90, 90, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 110, 110, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 110, 110, 0, Set.empty)
       }
 
       "be reversed back to A = 100/100/0, B = 100/100/0 balance" in {
@@ -361,9 +361,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionReversed]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 100, 100, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 100, 100, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0, Set.empty)
       }
     }
 
@@ -378,9 +378,9 @@ class LedgerSpec
       "result in A = 90/100/10, B = 100/100/0" in {
         transactionSetup()
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 90, 100, 10)
+        stateA.reply shouldBe CreditAccount(accountA, 90, 100, 10, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0, Set.empty)
       }
 
       "be reversed back to A = 100/100/0, B = 100/100/0 balance" in {
@@ -389,9 +389,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionReversed]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 100, 100, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 100, 100, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0, Set.empty)
       }
 
       "be partially captured (5) to A = 95/95/0, B = 105/105/0 balance" in {
@@ -400,9 +400,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0, Set.empty)
       }
 
       "not react to over-capture and then partially captured (5) to A = 95/95/0, B = 105/105/0 balance" in {
@@ -416,9 +416,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0, Set.empty)
       }
 
       "allow another authorize (15) followed by a partial capture (5) to A = 80/95/15, B = 105/105/0 balance" in {
@@ -432,9 +432,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 80, 95, 15)
+        stateA.reply shouldBe CreditAccount(accountA, 80, 95, 15, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0, Set.empty)
       }
 
       "allow another authorize (15), reversed, followed by a partial capture (5) to A = 95/95/0, B = 105/105/0 balance" in {
@@ -452,9 +452,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0, Set.empty)
       }
 
       "allow another transfer (15) followed by a partial capture (5) to A = 80/80/0, B = 120/120/0 balance" in {
@@ -468,9 +468,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 80, 80, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 80, 80, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 120, 120, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 120, 120, 0, Set.empty)
       }
 
       "allow another transfer (15), reversed, followed by a partial capture (5) to A = 95/95/0, B = 105/105/0 balance" in {
@@ -488,9 +488,9 @@ class LedgerSpec
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectMessageType[TransactionSuccessful]
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 95, 95, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 105, 105, 0, Set.empty)
       }
     }
 
@@ -505,9 +505,9 @@ class LedgerSpec
       "result in A = 0/100/100, B = 100/100/0 balance" in {
         transactionSetup()
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 0, 100, 100)
+        stateA.reply shouldBe CreditAccount(accountA, 0, 100, 100, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 100, 100, 0, Set.empty)
       }
 
       "capture (100) to in A = 0/0/0, B = 200/200/0 balance" in {
@@ -518,9 +518,9 @@ class LedgerSpec
         resultProbe.expectMessageType[TransactionSuccessful]
 
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 0, 0, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 0, 0, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 200, 200, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 200, 200, 0, Set.empty)
       }
 
       //This shouldn't really happen
@@ -529,7 +529,7 @@ class LedgerSpec
         // Illegal stuff
         accountATestKit.runCommand(Post("SETUP-A", "SETUP-ENTRY", 10, 0, DateUtils.now()))
         val preStateA = accountATestKit.runCommand[AccountState](Get)
-        preStateA.reply shouldBe CreditAccount(accountA, 0, 90, 90)
+        preStateA.reply shouldBe CreditAccount(accountA, 0, 90, 90, Set.empty)
 
         // Capture attempt stops
         transactionATestKit.runCommand(Capture(100, ackProbe.ref))
@@ -540,7 +540,7 @@ class LedgerSpec
         accountATestKit.runCommand(CreditAdjust("SOME-MANUAL", "MANUAL", 10))
         accountATestKit.runCommand(DebitHold("SOME-MANUAL", "MANUAL", 10))
         val preStateA2 = accountATestKit.runCommand[AccountState](Get)
-        preStateA2.reply shouldBe CreditAccount(accountA, 0, 100, 100)
+        preStateA2.reply shouldBe CreditAccount(accountA, 0, 100, 100, Set.empty)
 
         // Resume
         transactionATestKit.runCommand(Resume(ackProbe.ref))
@@ -548,9 +548,9 @@ class LedgerSpec
         resultProbe.expectMessageType[TransactionSuccessful]
 
         val stateA = accountATestKit.runCommand[AccountState](Get)
-        stateA.reply shouldBe CreditAccount(accountA, 0, 0, 0)
+        stateA.reply shouldBe CreditAccount(accountA, 0, 0, 0, Set.empty)
         val stateB = accountBTestKit.runCommand[AccountState](Get)
-        stateB.reply shouldBe CreditAccount(accountB, 200, 200, 0)
+        stateB.reply shouldBe CreditAccount(accountB, 200, 200, 0, Set.empty)
       }
     }
   }

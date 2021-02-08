@@ -2,19 +2,20 @@ package io.openledger
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import io.openledger.http_operations.{AccountResponse, AdjustRequest, OpenAccountRequest, Type}
-import spray.json.{DeserializationException, JsNumber, JsObject, JsString, JsValue, RootJsonFormat}
+import spray.json.{DeserializationException, JsArray, JsNumber, JsObject, JsString, JsValue, RootJsonFormat}
 
 trait JsonSupport extends SprayJsonSupport {
 
   implicit object AccountResponseFormat extends RootJsonFormat[AccountResponse] {
-    override def write(person: AccountResponse): JsValue = {
+    override def write(account: AccountResponse): JsValue = {
       JsObject(
-        "id" -> JsString(person.id),
-        "type" -> JsString(person.`type`.name),
+        "id" -> JsString(account.id),
+        "type" -> JsString(account.`type`.name),
         "balance" -> JsObject(
-          "available" -> JsNumber(person.balance.get.available),
-          "current" -> JsNumber(person.balance.get.current)
-        )
+          "available" -> JsNumber(account.balance.get.available),
+          "current" -> JsNumber(account.balance.get.current)
+        ),
+        "accounting_tags" -> JsArray(account.accountingTags.map(JsString(_)).toVector)
       )
     }
 
@@ -25,9 +26,14 @@ trait JsonSupport extends SprayJsonSupport {
     override def write(person: OpenAccountRequest): JsValue = throw new UnsupportedOperationException()
 
     override def read(json: JsValue): OpenAccountRequest = {
-      json.asJsObject.getFields("account_type", "account_id") match {
-        case Seq(JsString(accountType), JsString(accountId)) => Type.fromName(accountType) match {
-          case Some(value) => OpenAccountRequest(value, accountId)
+      json.asJsObject.getFields("account_type", "account_id", "accounting_tags") match {
+        case Seq(JsString(accountType), JsString(accountId), JsArray(jsTags)) => Type.fromName(accountType) match {
+          case Some(value) =>
+            val tags = jsTags.map {
+              case JsString(value) => value
+              case _ => throw DeserializationException("Account tags can only be strings")
+            }
+            OpenAccountRequest(value, accountId, tags)
           case None => throw DeserializationException("Unknown Account Type.")
         }
         case _ => throw DeserializationException("Unrecognizable request")

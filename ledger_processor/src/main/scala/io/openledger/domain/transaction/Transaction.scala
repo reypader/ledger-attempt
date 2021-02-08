@@ -2,6 +2,7 @@ package io.openledger.domain.transaction
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.AccountingMode.AccountMode
@@ -13,14 +14,14 @@ import io.openledger.{LedgerError, LedgerSerializable, ResultingBalance}
 import java.time.OffsetDateTime
 
 object Transaction {
-
   type AccountMessenger = (String, AccountingCommand) => Unit
   type ResultMessenger = TransactionResult => Unit
+  val TransactionTypeKey: EntityTypeKey[TransactionCommand] = EntityTypeKey[Transaction.TransactionCommand]("Transaction")
 
   def apply(transactionId: String)(implicit accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Behavior[TransactionCommand] =
     Behaviors.setup { implicit actorContext: ActorContext[TransactionCommand] =>
       EventSourcedBehavior[TransactionCommand, TransactionEvent, TransactionState](
-        persistenceId = PersistenceId.ofUniqueId(transactionId),
+        persistenceId = PersistenceId.of(TransactionTypeKey.name, transactionId),
         emptyState = Ready(transactionId),
         commandHandler = (state, cmd) => {
           actorContext.log.info(s"Handling command $cmd")
