@@ -7,10 +7,10 @@ import io.openledger.domain.transaction.Transaction.{AccountMessenger, ResultMes
 import io.openledger.events._
 
 trait TransactionState extends LedgerSerializable {
-  def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): TransactionState
+  def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): PartialFunction[TransactionEvent, TransactionState]
 
   def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit
 
-  def handleCommand(command: TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Effect[TransactionEvent, TransactionState]
+  def handleCommand(command: TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): PartialFunction[TransactionCommand, Effect[TransactionEvent, TransactionState]]
 }
 

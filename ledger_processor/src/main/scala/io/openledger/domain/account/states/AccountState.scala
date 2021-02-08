@@ -14,7 +14,7 @@ trait AccountState extends LedgerSerializable {
 
   def currentBalance: BigDecimal
 
-  def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): AccountState
+  def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): PartialFunction[AccountEvent, AccountState]
 
-  def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): Effect[AccountEvent, AccountState]
+  def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): PartialFunction[AccountCommand, Effect[AccountEvent, AccountState]]
 }

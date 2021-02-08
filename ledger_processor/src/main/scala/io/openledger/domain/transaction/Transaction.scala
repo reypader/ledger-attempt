@@ -22,11 +22,30 @@ object Transaction {
       EventSourcedBehavior[TransactionCommand, TransactionEvent, TransactionState](
         persistenceId = PersistenceId.ofUniqueId(transactionId),
         emptyState = Ready(transactionId),
-        commandHandler = (state, cmd) => cmd match {
-          case Get(replyTo) => Effect.none.thenReply(replyTo)(state => state)
-          case _ => state.handleCommand(cmd)
+        commandHandler = (state, cmd) => {
+          actorContext.log.info(s"Handling command $cmd")
+          state.handleCommand(cmd).orElse[TransactionCommand, Effect[TransactionEvent, TransactionState]] {
+            case Get(replyTo) => Effect.none.thenReply(replyTo)(s => s)
+            case ackable: Ackable =>
+              actorContext.log.warn(s"Unhandled Ackable $ackable. Rejecting...")
+              Effect.none
+                .thenRun { _ =>
+                  ackable.replyTo ! Nack
+                  resultMessenger(CommandRejected(transactionId, LedgerError.UNSUPPORTED_TRANSACTION_OPERATION_ON_CURRENT_STATE))
+                }
+            case _ =>
+              actorContext.log.warn(s"Unhandled command $cmd")
+              Effect.none
+          }(cmd)
         },
-        eventHandler = (state, evt) => state.handleEvent(evt))
+        eventHandler = (state, evt) => {
+          actorContext.log.info(s"Handling event $evt")
+          state.handleEvent(evt).orElse[TransactionEvent, TransactionState] {
+            case _ =>
+              actorContext.log.warn(s"Unhandled event $evt")
+              state
+          }(evt)
+        })
     }
 
   sealed trait TransactionResult extends LedgerSerializable {

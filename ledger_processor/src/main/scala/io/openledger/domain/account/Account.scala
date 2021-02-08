@@ -21,11 +21,28 @@ object Account {
       EventSourcedBehavior[AccountCommand, AccountEvent, AccountState](
         persistenceId = PersistenceId.ofUniqueId(accountId),
         emptyState = Ready(accountId),
-        commandHandler = (state, cmd) => cmd match {
-          case Get(replyTo) => Effect.none.thenReply(replyTo)(state => state)
-          case _ => state.handleCommand(cmd)
+        commandHandler = (state, cmd) => {
+          actorContext.log.info(s"Handling command $cmd")
+          state.handleCommand(cmd).orElse[AccountCommand, Effect[AccountEvent, AccountState]] {
+            case Get(replyTo) => Effect.none.thenReply(replyTo)(s => s)
+            case c: AccountingCommand =>
+              actorContext.log.warn(s"Unhandled command $cmd")
+              Effect.none.thenRun { _ =>
+                messenger(c.transactionId, AccountingFailed(c.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE))
+              }
+            case _ =>
+              actorContext.log.warn(s"Unhandled command $cmd")
+              Effect.none
+          }(cmd)
         },
-        eventHandler = (state, evt) => state.handleEvent(evt))
+        eventHandler = (state, evt) => {
+          actorContext.log.info(s"Handling event $evt")
+          state.handleEvent(evt).orElse[AccountEvent, AccountState] {
+            case _ =>
+              actorContext.log.warn(s"Unhandled event $evt")
+              state
+          }(evt)
+        })
     }
 
   sealed trait AccountCommand extends LedgerSerializable

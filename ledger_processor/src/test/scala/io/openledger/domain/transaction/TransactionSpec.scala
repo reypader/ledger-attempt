@@ -135,16 +135,16 @@ class TransactionSpec
         inSequence {
           stubAccountMessenger expects(accountIdToCredit, creditAdjust) once
 
-          stubResultMessenger expects (TransactionFailed(txnId, LedgerError.ACCOUNT_NOT_OPENED)) once
+          stubResultMessenger expects (TransactionFailed(txnId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
         }
 
         given()
 
-        val adjustResult = eventSourcedTestKit.runCommand(RejectAccounting(creditAdjust.hashCode(), accountIdToCredit, LedgerError.ACCOUNT_NOT_OPENED))
-        adjustResult.events shouldBe Seq(CreditAdjustmentFailed(LedgerError.ACCOUNT_NOT_OPENED.toString))
+        val adjustResult = eventSourcedTestKit.runCommand(RejectAccounting(creditAdjust.hashCode(), accountIdToCredit, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE))
+        adjustResult.events shouldBe Seq(CreditAdjustmentFailed(LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE.toString))
         adjustResult.stateOfType[Failed].entryCode shouldBe entryCode
         adjustResult.stateOfType[Failed].transactionId shouldBe txnId
-        adjustResult.stateOfType[Failed].code shouldBe LedgerError.ACCOUNT_NOT_OPENED.toString
+        adjustResult.stateOfType[Failed].code shouldBe LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE.toString
       }
     }
 
@@ -185,16 +185,16 @@ class TransactionSpec
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, debitAdjust) once
 
-          stubResultMessenger expects (TransactionFailed(txnId, LedgerError.ACCOUNT_NOT_OPENED)) once
+          stubResultMessenger expects (TransactionFailed(txnId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
         }
 
         given()
 
-        val adjustResult = eventSourcedTestKit.runCommand(RejectAccounting(debitAdjust.hashCode(), accountIdToDebit, LedgerError.ACCOUNT_NOT_OPENED))
-        adjustResult.events shouldBe Seq(DebitAdjustmentFailed(LedgerError.ACCOUNT_NOT_OPENED.toString))
+        val adjustResult = eventSourcedTestKit.runCommand(RejectAccounting(debitAdjust.hashCode(), accountIdToDebit, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE))
+        adjustResult.events shouldBe Seq(DebitAdjustmentFailed(LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE.toString))
         adjustResult.stateOfType[Failed].entryCode shouldBe entryCode
         adjustResult.stateOfType[Failed].transactionId shouldBe txnId
-        adjustResult.stateOfType[Failed].code shouldBe LedgerError.ACCOUNT_NOT_OPENED.toString
+        adjustResult.stateOfType[Failed].code shouldBe LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE.toString
       }
     }
 
