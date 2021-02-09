@@ -5,10 +5,13 @@ services:
     image: postgres
     ports:
       - "5433:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       - POSTGRES_DB=openledger_db
       - POSTGRES_USER=openledger_user
       - POSTGRES_PASSWORD=openledger_password
+      - PGDATA=/opt/data
   zookeeper:
     image: wurstmeister/zookeeper
   kafka:
