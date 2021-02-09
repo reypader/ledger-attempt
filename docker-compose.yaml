@@ -1,0 +1,21 @@
+version: "2.4"
+services:
+
+  postgres:
+    image: postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=openledger_db
+      - POSTGRES_USER=openledger_user
+      - POSTGRES_PASSWORD=openledger_password
+  zookeeper:
+    image: wurstmeister/zookeeper
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9093:9092"
+    environment:
+      - KAFKA_ADVERTISED_HOST_NAME=kafka
+      - KAFKA_CREATE_TOPICS=openledger_incoming:1:1,openledger_outgoing:1:1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181

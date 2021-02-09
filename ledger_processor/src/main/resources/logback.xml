@@ -13,6 +13,12 @@
         <appender-ref ref="STDOUT"/>
     </appender>
 
+    <logger name="org.apache.kafka" level="INFO" />
+    <logger name="javax.management" level="INFO" />
+    <logger name="slick" level="INFO" />
+    <logger name="org.postgresql" level="INFO" />
+    <logger name="org.apache" level="INFO" />
+
     <root level="DEBUG">
         <appender-ref ref="ASYNC"/>
     </root>

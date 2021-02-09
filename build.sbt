@@ -1,8 +1,10 @@
 ThisBuild / organization := "io.openledger"
 
-ThisBuild / version := "1.0"
+ThisBuild / version := "1.0.0"
 
 ThisBuild / scalaVersion := "2.13.1"
+
+ThisBuild / scalacOptions ++= Seq("-feature")
 
 lazy val root = (project in file("."))
   .aggregate(ledger_events, ledger_processor)
