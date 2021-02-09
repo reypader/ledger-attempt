@@ -1,10 +1,11 @@
-package io.openledger
+package io.openledger.api.kafka
 
 import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, RecipientRef, Scheduler}
 import akka.kafka.ConsumerMessage.Committable
 import akka.util.Timeout
+import io.openledger.LedgerError
 import io.openledger.domain.transaction.Transaction._
 import io.openledger.kafka_operations.TransactionRequest.Operation
 

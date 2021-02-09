@@ -1,11 +1,13 @@
 # OpenLedger
 
 ## How to build
+
 ```shell
 sbt clean docker:publishLocal
 ```
 
 ## How to run
+
 ```shell
 # Run dependencies (Kafka, PostgresSQL)
 # Creates `openledger_default` network

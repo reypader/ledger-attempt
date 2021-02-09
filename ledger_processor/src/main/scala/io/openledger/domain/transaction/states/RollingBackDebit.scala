@@ -30,15 +30,15 @@ case class RollingBackDebit(entryCode: String, transactionId: String, accountToD
         }
   }
 
+  override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
+    context.log.info(s"Performing $stateCommand on $accountToDebit")
+    accountMessenger(accountToDebit, stateCommand)
+  }
+
   private def stateCommand = amountCaptured match {
     case Some(capturedAmount) =>
       Account.CreditAdjust(transactionId, entryCode, capturedAmount)
     case None =>
       Account.Release(transactionId, entryCode, authorizedAmount)
-  }
-
-  override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
-    context.log.info(s"Performing $stateCommand on $accountToDebit")
-    accountMessenger(accountToDebit, stateCommand)
   }
 }

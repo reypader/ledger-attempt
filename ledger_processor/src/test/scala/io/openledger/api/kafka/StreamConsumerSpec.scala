@@ -1,12 +1,13 @@
-package io.openledger
+package io.openledger.api.kafka
 
 import akka.Done
 import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKit}
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.kafka.ConsumerMessage.Committable
-import io.openledger.StreamConsumer._
+import io.openledger.api.kafka.StreamConsumer._
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.kafka_operations
 import io.openledger.kafka_operations.TransactionRequest.Operation
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach

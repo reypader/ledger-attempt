@@ -23,5 +23,5 @@ Compile / discoveredMainClasses := Seq()
 Compile / mainClass := Some("io.openledger.Application")
 Docker / packageName := "openledger"
 dockerBaseImage := "openjdk:11-jdk-slim"
-dockerExposedPorts := Seq(8080,8558,25520)
+dockerExposedPorts := Seq(8080, 8558, 25520)
 dockerExposedVolumes := Seq("/opt/openledger/")

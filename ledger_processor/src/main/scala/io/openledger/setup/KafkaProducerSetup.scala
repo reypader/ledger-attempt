@@ -1,4 +1,4 @@
-package io.openledger
+package io.openledger.setup
 
 import akka.Done
 import akka.actor.CoordinatedShutdown
@@ -7,9 +7,10 @@ import akka.kafka.ProducerSettings
 import akka.kafka.scaladsl.Producer
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, RunnableGraph, Source, SourceQueue, SourceQueueWithComplete}
-import io.openledger.KafkaProducerSetup.KafkaProducerSettings
 import io.openledger.domain.transaction.Transaction._
 import io.openledger.kafka_operations.TransactionResult.Balance
+import io.openledger.setup.KafkaProducerSetup.KafkaProducerSettings
+import io.openledger.{AccountingMode, kafka_operations}
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,6 +20,7 @@ object KafkaProducerSetup {
   def apply(settings: KafkaProducerSettings, coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) = new KafkaProducerSetup(settings, coordinatedShutdown)
 
   case class KafkaProducerSettings(topic: String, bufferSize: Int, kafkaProducerSettings: ProducerSettings[String, Array[Byte]])
+
 }
 
 class KafkaProducerSetup(settings: KafkaProducerSettings, coordinatedShutdown: CoordinatedShutdown)(implicit system: ActorSystem[_], executionContext: ExecutionContext) {

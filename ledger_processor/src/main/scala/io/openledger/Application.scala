@@ -10,11 +10,13 @@ import akka.kafka.{CommitterSettings, ConsumerSettings, ProducerSettings}
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.stream.{QueueCompletionResult, QueueOfferResult}
-import io.openledger.StreamConsumer.StreamOp
+import io.openledger.api.kafka.StreamConsumer
+import io.openledger.api.kafka.StreamConsumer.StreamOp
 import io.openledger.domain.account.Account
 import io.openledger.domain.account.Account._
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.setup.{KafkaConsumerSetup, KafkaProducerSetup}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory
 
@@ -41,6 +43,7 @@ object Application extends App {
     sharding.init(Entity(AccountTypeKey)(createBehavior = entityContext => Account(entityContext.entityId)(transactionMessenger, () => DateUtils.now())))
   val transactionShardRegion: ActorRef[ShardingEnvelope[Transaction.TransactionCommand]] =
     sharding.init(Entity(TransactionTypeKey)(createBehavior = entityContext => Transaction(entityContext.entityId)(accountMessenger, resultMessenger)))
+  val producerQueue = KafkaProducerSetup(producerSettings, coordinatedShutdown).run()
   private val producerSettings = KafkaProducerSetup.KafkaProducerSettings(
     topic = system.settings.config.getString("ledger-settings.kafka.outgoing.topic"),
     bufferSize = system.settings.config.getInt("ledger-settings.kafka.outgoing.buffer-size"),
@@ -50,7 +53,6 @@ object Application extends App {
       valueSerializer = new ByteArraySerializer
     )
   )
-  val producerQueue = KafkaProducerSetup(producerSettings, coordinatedShutdown).run()
   private val streamConsumerSettings = KafkaConsumerSetup.KafkaConsumerSettings(
     processingTimeout = FiniteDuration(system.settings.config.getDuration("ledger-settings.processor.timeout").toMillis, MILLISECONDS),
     topics = system.settings.config.getStringList("ledger-settings.kafka.incoming.topics").asScala.toSet,

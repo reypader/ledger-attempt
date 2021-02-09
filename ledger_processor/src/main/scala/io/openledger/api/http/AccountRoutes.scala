@@ -1,42 +1,41 @@
-package io.openledger
+package io.openledger.api.http
 
-import akka.actor.CoordinatedShutdown
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorSystem, RecipientRef}
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
+import io.openledger.AccountingMode
+import io.openledger.AccountingMode.{CREDIT, DEBIT}
+import io.openledger.api.http.Operations.{AccountResponse, AdjustRequest, Balance, OpenAccountRequest}
 import io.openledger.domain.account.Account
 import io.openledger.domain.account.Account.AccountCommand
 import io.openledger.domain.account.states.{CreditAccount, DebitAccount, Ready}
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{Adjust, TransactionCommand}
-import io.openledger.http_operations.AccountResponse.Balance
-import io.openledger.http_operations.{AccountResponse, AdjustRequest, OpenAccountRequest, Type}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResolver: String => RecipientRef[TransactionCommand], accountResolver: String => RecipientRef[AccountCommand])(implicit system: ActorSystem[_], executionContext: ExecutionContext) extends JsonSupport {
+object AccountRoutes extends JsonSupport {
   implicit val httpRequestTimeout: Timeout = 15.seconds
 
-  val accountRoutes: Route =
+  def apply(transactionResolver: String => RecipientRef[TransactionCommand], accountResolver: String => RecipientRef[AccountCommand])(implicit system: ActorSystem[_], executionContext: ExecutionContext): Route =
     concat {
       pathEnd {
         post {
           decodeRequest {
             entity(as[OpenAccountRequest]) { open =>
-              val ref = accountResolver(open.accountId)
+              val ref = accountResolver(open.account_id)
               onComplete(ref.ask(Account.Get)) {
                 case Failure(exception) =>
                   failWith(exception)
                 case Success(value) => value match {
-                  case Ready(accountId) =>
-                    ref ! Account.Open(AccountingMode.withName(open.accountType.name), open.accountingTags.toSet)
-                    complete(StatusCodes.Accepted, s"Account Opening request accepted. Account $accountId will be ready shortly.")
+                  case Ready(account_id) =>
+                    ref ! Account.Open(open.account_type, open.accounting_tags)
+                    complete(StatusCodes.Accepted, s"Account Opening request accepted. Account $account_id will be ready shortly.")
                   case _ =>
                     complete(StatusCodes.Conflict, "Account already exists")
                 }
@@ -45,17 +44,17 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
           }
         }
       }
-      path(Segment) { accountId =>
+      path(Segment) { account_id =>
         concat {
           get {
-            onComplete(accountResolver(accountId).ask(Account.Get)) {
+            onComplete(accountResolver(account_id).ask(Account.Get)) {
               case Failure(exception) =>
                 failWith(exception)
               case Success(value) => value match {
                 case CreditAccount(_, availableBalance, currentBalance, _, tags) =>
-                  complete(StatusCodes.OK, AccountResponse(accountId, Type.DEBIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue)), tags.toSeq))
+                  complete(StatusCodes.OK, AccountResponse(account_id, DEBIT, tags, Balance(availableBalance, currentBalance)))
                 case DebitAccount(_, availableBalance, currentBalance, _, tags) =>
-                  complete(StatusCodes.OK, AccountResponse(accountId, Type.CREDIT, Some(Balance(availableBalance.doubleValue, currentBalance.doubleValue)), tags.toSeq))
+                  complete(StatusCodes.OK, AccountResponse(account_id, CREDIT, tags, Balance(availableBalance, currentBalance)))
                 case _ =>
                   complete(StatusCodes.NotFound, "Account Not Found")
               }
@@ -65,20 +64,20 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
             post {
               decodeRequest {
                 entity(as[AdjustRequest]) { adjust =>
-                  onComplete(accountResolver(accountId).ask(Account.Get)) {
+                  onComplete(accountResolver(account_id).ask(Account.Get)) {
                     case Failure(exception) =>
                       failWith(exception)
                     case Success(value) => value match {
                       case _: CreditAccount | _: DebitAccount =>
-                        adjust.adjustmentType match {
-                          case Type.DEBIT =>
-                            onSuccess(transactionResolver(adjust.transactionId).ask(Adjust(adjust.entryCode, accountId, adjust.amount, AccountingMode.DEBIT, _))) {
+                        adjust.adjustment_type match {
+                          case DEBIT =>
+                            onSuccess(transactionResolver(adjust.transaction_id).ask(Adjust(adjust.entry_code, account_id, adjust.amount, AccountingMode.DEBIT, _))) {
                               case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
                               case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
                             }
 
-                          case Type.CREDIT =>
-                            onSuccess(transactionResolver(adjust.transactionId).ask(Adjust(adjust.entryCode, accountId, adjust.amount, AccountingMode.CREDIT, _))) {
+                          case CREDIT =>
+                            onSuccess(transactionResolver(adjust.transaction_id).ask(Adjust(adjust.entry_code, account_id, adjust.amount, AccountingMode.CREDIT, _))) {
                               case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
                               case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
                             }
@@ -86,7 +85,7 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
                         }
 
                       case _ =>
-                        complete(StatusCodes.NotFound, s"Account $accountId Not Opened")
+                        complete(StatusCodes.NotFound, s"Account $account_id Not Opened")
                     }
                   }
                 }
@@ -96,18 +95,4 @@ class HttpServerSetup(coordinatedShutdown: CoordinatedShutdown, transactionResol
         }
       }
     }
-
-  val route: Route =
-    concat {
-      path("accounts")(accountRoutes)
-    }
-
-
-  def run(): Unit = {
-    val bindingFuture = Http().newServerAt("localhost", 8080).bind(route)
-
-    coordinatedShutdown.addTask(CoordinatedShutdown.PhaseServiceUnbind, "shutdown-http-server") { () =>
-      bindingFuture.flatMap(_.unbind())
-    }
-  }
 }

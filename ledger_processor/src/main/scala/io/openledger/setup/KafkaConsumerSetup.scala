@@ -1,4 +1,4 @@
-package io.openledger
+package io.openledger.setup
 
 import akka.Done
 import akka.actor.CoordinatedShutdown
@@ -9,10 +9,10 @@ import akka.kafka.{CommitterSettings, ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.RunnableGraph
 import akka.stream.typed.scaladsl.ActorFlow
 import akka.stream.{ActorAttributes, Materializer, Supervision, _}
-import io.openledger.KafkaConsumerSetup.KafkaConsumerSettings
-import io.openledger.StreamConsumer._
+import io.openledger.api.kafka.StreamConsumer._
 import io.openledger.domain.transaction.Transaction.{apply => _}
 import io.openledger.kafka_operations.TransactionRequest
+import io.openledger.setup.KafkaConsumerSetup.KafkaConsumerSettings
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -22,6 +22,7 @@ object KafkaConsumerSetup {
   def apply(settings: KafkaConsumerSettings, coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamOp])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) = new KafkaConsumerSetup(settings, coordinatedShutdown, consumerActor)
 
   case class KafkaConsumerSettings(processingTimeout: FiniteDuration, messagePerSecond: Int, topics: Set[String], kafkaSourceSettings: ConsumerSettings[String, Array[Byte]], kafkaComitterSettings: CommitterSettings)
+
 }
 
 class KafkaConsumerSetup(settings: KafkaConsumerSettings, coordinatedShutdown: CoordinatedShutdown, consumerActor: ActorRef[StreamOp])(implicit system: ActorSystem[_], executionContext: ExecutionContext, materializer: Materializer, scheduler: Scheduler) {
