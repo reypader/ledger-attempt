@@ -43,7 +43,7 @@ object Account {
               actorContext.log.warn(s"Unhandled event $evt")
               state
           }(evt)
-        })
+        }).withTagger(_ => Set(AccountEvent.tagDistribution.assignTag(accountId)))
     }
 
   sealed trait AccountCommand extends LedgerSerializable

@@ -46,7 +46,7 @@ object Transaction {
               actorContext.log.warn(s"Unhandled event $evt")
               state
           }(evt)
-        })
+        }).withTagger(_ => Set(TransactionEvent.tagDistribution.assignTag(transactionId)))
     }
 
   sealed trait TransactionResult extends LedgerSerializable {

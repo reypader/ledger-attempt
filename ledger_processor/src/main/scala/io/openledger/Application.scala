@@ -27,9 +27,9 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Success}
 
 object Application extends App {
-  private final val logger = LoggerFactory.getLogger(this.getClass)
+  val logger = LoggerFactory.getLogger(this.getClass)
 
-  implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(Behaviors.setup[SpawnProtocol.Command] { context =>
+  implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(Behaviors.setup[SpawnProtocol.Command] { _ =>
     SpawnProtocol()
   }, "openledger")
   implicit val scheduler: Scheduler = system.scheduler
@@ -43,8 +43,7 @@ object Application extends App {
     sharding.init(Entity(AccountTypeKey)(createBehavior = entityContext => Account(entityContext.entityId)(transactionMessenger, () => DateUtils.now())))
   val transactionShardRegion: ActorRef[ShardingEnvelope[Transaction.TransactionCommand]] =
     sharding.init(Entity(TransactionTypeKey)(createBehavior = entityContext => Transaction(entityContext.entityId)(accountMessenger, resultMessenger)))
-  val producerQueue = KafkaProducerSetup(producerSettings, coordinatedShutdown).run()
-  private val producerSettings = KafkaProducerSetup.KafkaProducerSettings(
+  val producerSettings = KafkaProducerSetup.KafkaProducerSettings(
     topic = system.settings.config.getString("ledger-settings.kafka.outgoing.topic"),
     bufferSize = system.settings.config.getInt("ledger-settings.kafka.outgoing.buffer-size"),
     kafkaProducerSettings = ProducerSettings(
@@ -53,7 +52,8 @@ object Application extends App {
       valueSerializer = new ByteArraySerializer
     )
   )
-  private val streamConsumerSettings = KafkaConsumerSetup.KafkaConsumerSettings(
+  val producerQueue = KafkaProducerSetup(producerSettings, coordinatedShutdown).run()
+  val streamConsumerSettings = KafkaConsumerSetup.KafkaConsumerSettings(
     processingTimeout = FiniteDuration(system.settings.config.getDuration("ledger-settings.processor.timeout").toMillis, MILLISECONDS),
     topics = system.settings.config.getStringList("ledger-settings.kafka.incoming.topics").asScala.toSet,
     messagePerSecond = system.settings.config.getInt("ledger-settings.kafka.incoming.message-per-second"),
@@ -64,6 +64,10 @@ object Application extends App {
     kafkaComitterSettings = CommitterSettings(
       config = system.settings.config.getConfig("akka.kafka.committer"))
   )
+
+  for (
+    consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamOp]]) => SpawnProtocol.Spawn(StreamConsumer(id => sharding.entityRefFor(TransactionTypeKey, id), resultMessenger)(streamConsumerSettings.processingTimeout, scheduler, executionContext), name = "StreamConsumer", props = Props.empty, replyTo))(10.seconds, scheduler)
+  ) yield KafkaConsumerSetup(streamConsumerSettings, coordinatedShutdown, consumerActor).run()
 
   def transactionMessenger(transactionId: String, message: AccountingStatus): Unit = message match {
     case AccountingSuccessful(cmdHash, accountId, availableBalance, currentBalance, _, timestamp) =>
@@ -98,9 +102,5 @@ object Application extends App {
         logger.error(s"ALERT: enqueueing $message failed", exception)
     }
   }
-
-  for (
-    consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamOp]]) => SpawnProtocol.Spawn(StreamConsumer((id) => sharding.entityRefFor(TransactionTypeKey, id), resultMessenger)(streamConsumerSettings.processingTimeout, scheduler, executionContext), name = "StreamConsumer", props = Props.empty, replyTo))(10.seconds, scheduler)
-  ) yield KafkaConsumerSetup(streamConsumerSettings, coordinatedShutdown, consumerActor).run()
 
 }

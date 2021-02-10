@@ -1,9 +1,14 @@
 package io.openledger.events
 
-import io.openledger.ResultingBalance
 import io.openledger.AccountingMode.AccountMode
+import io.openledger.{ResultingBalance, TagDistribution}
 
 import java.time.OffsetDateTime
+
+object TransactionEvent {
+  val tagPrefix = "transaction-"
+  val tagDistribution: TagDistribution = TagDistribution(tagPrefix, 100)
+}
 
 sealed trait TransactionEvent
 

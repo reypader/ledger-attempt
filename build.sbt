@@ -14,4 +14,3 @@ lazy val ledger_events = project
 lazy val ledger_processor = project
   .dependsOn(ledger_events)
 
-

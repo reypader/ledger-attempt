@@ -1,6 +1,13 @@
 package io.openledger.events
 
+import io.openledger.TagDistribution
+
 import java.time.OffsetDateTime
+
+object AccountEvent {
+  val tagPrefix = "account-"
+  val tagDistribution: TagDistribution = TagDistribution(tagPrefix, 100)
+}
 
 sealed trait AccountEvent
 
