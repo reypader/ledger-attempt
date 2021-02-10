@@ -23,8 +23,8 @@ object AccountRoutes extends JsonSupport {
   implicit val httpRequestTimeout: Timeout = 15.seconds
 
   def apply(transactionResolver: String => RecipientRef[TransactionCommand], accountResolver: String => RecipientRef[AccountCommand])(implicit system: ActorSystem[_], executionContext: ExecutionContext): Route =
-    concat {
-      pathEnd {
+    concat(
+      pathEndOrSingleSlash {
         post {
           decodeRequest {
             entity(as[OpenAccountRequest]) { open =>
@@ -43,56 +43,60 @@ object AccountRoutes extends JsonSupport {
             }
           }
         }
-      }
-      path(Segment) { account_id =>
-        concat {
-          get {
-            onComplete(accountResolver(account_id).ask(Account.Get)) {
-              case Failure(exception) =>
-                failWith(exception)
-              case Success(value) => value match {
-                case CreditAccount(_, availableBalance, currentBalance, _, tags) =>
-                  complete(StatusCodes.OK, AccountResponse(account_id, DEBIT, tags, Balance(availableBalance, currentBalance)))
-                case DebitAccount(_, availableBalance, currentBalance, _, tags) =>
-                  complete(StatusCodes.OK, AccountResponse(account_id, CREDIT, tags, Balance(availableBalance, currentBalance)))
-                case _ =>
-                  complete(StatusCodes.NotFound, "Account Not Found")
+      },
+      pathPrefix(Segment) { account_id =>
+        concat(
+          pathEndOrSingleSlash {
+            get {
+              onComplete(accountResolver(account_id).ask(Account.Get)) {
+                case Failure(exception) =>
+                  failWith(exception)
+                case Success(value) => value match {
+                  case CreditAccount(_, availableBalance, currentBalance, _, tags) =>
+                    complete(StatusCodes.OK, AccountResponse(account_id, DEBIT, tags, Balance(availableBalance, currentBalance)))
+                  case DebitAccount(_, availableBalance, currentBalance, _, tags) =>
+                    complete(StatusCodes.OK, AccountResponse(account_id, CREDIT, tags, Balance(availableBalance, currentBalance)))
+                  case _ =>
+                    complete(StatusCodes.NotFound, "Account Not Found")
+                }
               }
             }
-          }
-          path("adjustments") {
-            post {
-              decodeRequest {
-                entity(as[AdjustRequest]) { adjust =>
-                  onComplete(accountResolver(account_id).ask(Account.Get)) {
-                    case Failure(exception) =>
-                      failWith(exception)
-                    case Success(value) => value match {
-                      case _: CreditAccount | _: DebitAccount =>
-                        adjust.adjustment_type match {
-                          case DEBIT =>
-                            onSuccess(transactionResolver(adjust.transaction_id).ask(Adjust(adjust.entry_code, account_id, adjust.amount, AccountingMode.DEBIT, _))) {
-                              case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
-                              case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
-                            }
+          },
+          pathPrefix("adjustments") {
+            pathEndOrSingleSlash {
+              post {
+                decodeRequest {
+                  entity(as[AdjustRequest]) { adjust =>
+                    onComplete(accountResolver(account_id).ask(Account.Get)) {
+                      case Failure(exception) =>
+                        failWith(exception)
+                      case Success(value) => value match {
+                        case _: CreditAccount | _: DebitAccount =>
+                          adjust.adjustment_type match {
+                            case DEBIT =>
+                              onSuccess(transactionResolver(adjust.transaction_id).ask(Adjust(adjust.entry_code, account_id, adjust.amount, AccountingMode.DEBIT, _))) {
+                                case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
+                                case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
+                              }
 
-                          case CREDIT =>
-                            onSuccess(transactionResolver(adjust.transaction_id).ask(Adjust(adjust.entry_code, account_id, adjust.amount, AccountingMode.CREDIT, _))) {
-                              case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
-                              case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
-                            }
-                          case _ => complete(StatusCodes.BadRequest, "Unknown adjustment type.")
-                        }
+                            case CREDIT =>
+                              onSuccess(transactionResolver(adjust.transaction_id).ask(Adjust(adjust.entry_code, account_id, adjust.amount, AccountingMode.CREDIT, _))) {
+                                case Transaction.Ack => complete(StatusCodes.Accepted, "Adjustment accepted. Balance will be reflected shortly")
+                                case Transaction.Nack => complete(StatusCodes.Conflict, "Adjustment cannot be done. Possible transaction ID conflict")
+                              }
+                            case _ => complete(StatusCodes.BadRequest, "Unknown adjustment type.")
+                          }
 
-                      case _ =>
-                        complete(StatusCodes.NotFound, s"Account $account_id Not Opened")
+                        case _ =>
+                          complete(StatusCodes.NotFound, s"Account $account_id Not Opened")
+                      }
                     }
                   }
                 }
               }
             }
           }
-        }
+        )
       }
-    }
+    )
 }

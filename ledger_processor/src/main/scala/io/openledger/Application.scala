@@ -16,7 +16,7 @@ import io.openledger.domain.account.Account
 import io.openledger.domain.account.Account._
 import io.openledger.domain.transaction.Transaction
 import io.openledger.domain.transaction.Transaction.{apply => _, _}
-import io.openledger.setup.{KafkaConsumerSetup, KafkaProducerSetup}
+import io.openledger.setup.{HttpServerSetup, KafkaConsumerSetup, KafkaProducerSetup}
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory
 
@@ -64,6 +64,8 @@ object Application extends App {
     kafkaComitterSettings = CommitterSettings(
       config = system.settings.config.getConfig("akka.kafka.committer"))
   )
+
+  HttpServerSetup(coordinatedShutdown,transactionResolver,accountResolver).run()
 
   for (
     consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamOp]]) => SpawnProtocol.Spawn(StreamConsumer(id => sharding.entityRefFor(TransactionTypeKey, id), resultMessenger)(streamConsumerSettings.processingTimeout, scheduler, executionContext), name = "StreamConsumer", props = Props.empty, replyTo))(10.seconds, scheduler)

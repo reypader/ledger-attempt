@@ -57,7 +57,7 @@ object Transaction {
     def transactionId: String
   }
 
-  sealed trait Ackable {
+  sealed trait Ackable extends LedgerSerializable {
     def replyTo: ActorRef[TxnAck]
   }
 

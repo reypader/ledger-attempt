@@ -18,6 +18,7 @@ object Dependencies {
     "com.lightbend.akka" %% "akka-persistence-jdbc" % "5.0.0",
     "com.typesafe.slick" %% "slick" % SlickVersion,
     "com.typesafe.slick" %% "slick-hikaricp" % SlickVersion,
+    "org.postgresql" % "postgresql" % "42.1.1",
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
     "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,

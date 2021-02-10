@@ -16,6 +16,7 @@ import scala.language.postfixOps
 
 class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.parseString(
   """
+    akka.actor.allow-java-serialization = false
     akka.actor.serialization-bindings {
         "io.openledger.LedgerSerializable" = jackson-cbor
         "io.openledger.events.AccountEvent" = jackson-cbor

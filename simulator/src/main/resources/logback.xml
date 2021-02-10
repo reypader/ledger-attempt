@@ -1,0 +1,26 @@
+<configuration>
+    <!-- This is a development logging configuration that logs to standard out, for an example of a production
+        logging config, see the Akka docs: https://doc.akka.io/docs/akka/2.6/typed/logging.html#logback -->
+    <appender name="STDOUT" target="System.out" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%X{akkaSource}] %logger{15} [%thread{15}] - %message%n%xException{10}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="STDOUT"/>
+    </appender>
+
+    <logger name="org.apache.kafka" level="INFO"/>
+    <logger name="javax.management" level="INFO"/>
+    <logger name="slick" level="INFO"/>
+    <logger name="org.postgresql" level="INFO"/>
+    <logger name="org.apache" level="INFO"/>
+
+    <root level="DEBUG">
+        <appender-ref ref="ASYNC"/>
+    </root>
+
+</configuration>
