@@ -23,4 +23,6 @@ case class TransferRoundTrip(participants: Seq[String]) extends SequenceGenerato
 
   override def generate(): Seq[TransactionRequest] = pairs
   override def count(): Int = pairs.size
+
+  override def toString: String = s"${pairs.size} transfers rotated among ${participants.size} accounts"
 }

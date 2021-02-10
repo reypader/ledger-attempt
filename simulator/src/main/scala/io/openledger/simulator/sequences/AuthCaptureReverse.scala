@@ -36,4 +36,5 @@ case class AuthCaptureReverse(participants: Seq[String]) extends SequenceGenerat
   override def generate(): Seq[TransactionRequest] = transactions
 
   override def count(): Int = transactions.size
+  override def toString: String = s"${transactions.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${transactions.count(r => r.operation.isCapture)} full captures and ${transactions.count(r => r.operation.isReverse)} reversals"
 }

@@ -30,4 +30,7 @@ case class AuthReverse(participants: Seq[String]) extends SequenceGenerator {
 
   override def generate(): Seq[TransactionRequest] = transactions
   override def count(): Int = transactions.size
+  override def toString: String = s"${transactions.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${transactions.count(r => r.operation.isReverse)} reversals"
+
+
 }
