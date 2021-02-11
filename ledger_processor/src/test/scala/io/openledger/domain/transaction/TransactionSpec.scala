@@ -4,7 +4,7 @@ import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKi
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
 import io.openledger.domain.account.Account._
-import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.domain.transaction.Transaction.{Get, apply => _, _}
 import io.openledger.domain.transaction.states._
 import io.openledger.events._
 import io.openledger.{AccountingMode, DateUtils, LedgerError, ResultingBalance}
@@ -67,6 +67,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
       }
 
@@ -208,6 +209,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
       }
 
@@ -228,6 +230,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
@@ -251,6 +254,66 @@ class TransactionSpec
         debitResult.stateOfType[Failed].transactionId shouldBe txnId
 
       }
+
+      "transition to Crediting after DebitHoldSucceeded (reversal marked)" in {
+        val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubAccountMessenger expects(accountIdToCredit, fullCredit) once
+        }
+
+        given()
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Authorizing].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        reverseResult.stateOfType[Authorizing].reversalPending shouldBe true
+        reverseResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
+
+        val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
+        debitResult.events shouldBe Seq(DebitHoldSucceeded(expectedDebitResultingBalance, theTime))
+        debitResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        debitResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
+        debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
+        debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
+        debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe true
+        debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
+        debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
+        debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
+      }
+
+      "transition to Failed after DebitHoldFailed (reversal marked)" in {
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubResultMessenger expects TransactionFailed(txnId, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE) once
+        }
+
+        given()
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Authorizing].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        reverseResult.stateOfType[Authorizing].reversalPending shouldBe true
+        reverseResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
+
+        val debitResult = eventSourcedTestKit.runCommand(RejectAccounting(debitHold.hashCode(), accountIdToDebit, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE))
+        debitResult.events shouldBe Seq(DebitHoldFailed(LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString))
+        debitResult.stateOfType[Failed].code shouldBe LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString
+        debitResult.stateOfType[Failed].entryCode shouldBe entryCode
+        debitResult.stateOfType[Failed].transactionId shouldBe txnId
+
+      }
     }
 
     "Crediting" must {
@@ -266,6 +329,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime))
@@ -275,6 +339,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe holdTime
@@ -300,6 +365,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -328,6 +394,82 @@ class TransactionSpec
         creditResult.stateOfType[RollingBackDebit].amountCaptured shouldBe None
         creditResult.stateOfType[RollingBackDebit].creditReversedResultingBalance shouldBe None
       }
+
+      "transition to Posting after CreditingSucceeded (reversal marked)" in {
+        val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubAccountMessenger expects(accountIdToCredit, fullCredit) once
+
+          stubAccountMessenger expects(accountIdToDebit, fullPastPost) once
+        }
+
+        given()
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        reverseResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Crediting].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Crediting].transactionId shouldBe txnId
+        reverseResult.stateOfType[Crediting].reversalPending shouldBe true
+        reverseResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
+        reverseResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
+        reverseResult.stateOfType[Crediting].debitHoldTimestamp shouldBe holdTime
+
+        val creditResult = eventSourcedTestKit.runCommand(AcceptAccounting(fullCredit.hashCode(), accountIdToCredit, expectedCreditResultingBalance, theTime))
+        creditResult.events shouldBe Seq(CreditSucceeded(expectedCreditResultingBalance))
+        creditResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        creditResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        creditResult.stateOfType[Posting].accountToDebit shouldBe accountIdToDebit
+        creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
+        creditResult.stateOfType[Posting].entryCode shouldBe entryCode
+        creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe true
+        creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
+        creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
+        creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
+
+      }
+
+      "transition to RollingBackDebit after CreditingFailed (reversal marked)" in {
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubAccountMessenger expects(accountIdToCredit, fullCredit) once
+
+          stubAccountMessenger expects(accountIdToDebit, fullRelease) once
+        }
+
+        given()
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        reverseResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Crediting].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Crediting].transactionId shouldBe txnId
+        reverseResult.stateOfType[Crediting].reversalPending shouldBe true
+        reverseResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
+        reverseResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
+        reverseResult.stateOfType[Crediting].debitHoldTimestamp shouldBe holdTime
+
+        val creditResult = eventSourcedTestKit.runCommand(RejectAccounting(fullCredit.hashCode(), accountIdToCredit, LedgerError.DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE))
+        creditResult.events shouldBe Seq(CreditFailed(LedgerError.DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString))
+        creditResult.stateOfType[RollingBackDebit].code shouldBe Some(LedgerError.DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString)
+        creditResult.stateOfType[RollingBackDebit].accountToDebit shouldBe accountIdToDebit
+        creditResult.stateOfType[RollingBackDebit].accountToCredit shouldBe accountIdToCredit
+        creditResult.stateOfType[RollingBackDebit].entryCode shouldBe entryCode
+        creditResult.stateOfType[RollingBackDebit].transactionId shouldBe txnId
+        creditResult.stateOfType[RollingBackDebit].authorizedAmount shouldBe transactionAmount
+        creditResult.stateOfType[RollingBackDebit].amountCaptured shouldBe None
+        creditResult.stateOfType[RollingBackDebit].creditReversedResultingBalance shouldBe None
+      }
     }
 
     "RollingBackDebit due to Error" must {
@@ -341,6 +483,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
@@ -350,6 +493,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
@@ -437,6 +581,7 @@ class TransactionSpec
 
       }
     }
+
     "Posting" must {
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
       val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
@@ -451,6 +596,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime))
@@ -460,6 +606,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe holdTime
@@ -472,6 +619,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -500,6 +648,7 @@ class TransactionSpec
         creditResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posted].entryCode shouldBe entryCode
         creditResult.stateOfType[Posted].transactionId shouldBe txnId
+        creditResult.stateOfType[Posted].reversalPending shouldBe false
         creditResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
       }
 
@@ -528,6 +677,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -541,6 +691,7 @@ class TransactionSpec
         resumeResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         resumeResult.stateOfType[Posting].entryCode shouldBe entryCode
         resumeResult.stateOfType[Posting].transactionId shouldBe txnId
+        resumeResult.stateOfType[Posting].reversalPending shouldBe false
         resumeResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         resumeResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         resumeResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -553,9 +704,150 @@ class TransactionSpec
         postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         postingResult.stateOfType[Posted].entryCode shouldBe entryCode
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
+        postingResult.stateOfType[Posted].reversalPending shouldBe false
         postingResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
       }
+
+      "transition to Posted then RollingBackCredit immediately after DebitPostSucceeded (reversal marked)" in {
+        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubAccountMessenger expects(accountIdToCredit, fullCredit) once
+
+          stubAccountMessenger expects(accountIdToDebit, fullPastPost) once
+
+          stubResultMessenger expects TransactionSuccessful(txnId, debitPostedAccountResultingBalance, expectedCreditResultingBalance) once
+
+          stubAccountMessenger expects(accountIdToCredit, debitAdjust) once
+        }
+
+        given()
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        reverseResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        reverseResult.stateOfType[Posting].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Posting].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Posting].transactionId shouldBe txnId
+        reverseResult.stateOfType[Posting].reversalPending shouldBe true
+        reverseResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
+        reverseResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
+        reverseResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
+
+        val creditResult = eventSourcedTestKit.runCommand(AcceptAccounting(fullPastPost.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime))
+        creditResult.events shouldBe Seq(DebitPostSucceeded(debitPostedAccountResultingBalance))
+        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
+        creditResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        creditResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        creditResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        creditResult.stateOfType[Posted].entryCode shouldBe entryCode
+        creditResult.stateOfType[Posted].transactionId shouldBe txnId
+        creditResult.stateOfType[Posted].reversalPending shouldBe true
+        creditResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
+
+
+        val getResult = eventSourcedTestKit.runCommand(Get)
+        getResult.hasNoEvents shouldBe true
+        getResult.stateOfType[RollingBackCredit].accountToDebit shouldBe accountIdToDebit
+        getResult.stateOfType[RollingBackCredit].accountToCredit shouldBe accountIdToCredit
+        getResult.stateOfType[RollingBackCredit].entryCode shouldBe entryCode
+        getResult.stateOfType[RollingBackCredit].transactionId shouldBe txnId
+        getResult.stateOfType[RollingBackCredit].creditedAmount shouldBe transactionAmount
+        getResult.stateOfType[RollingBackCredit].amountCaptured shouldBe Some(transactionAmount)
+        getResult.stateOfType[RollingBackCredit].code shouldBe None
+      }
+
+      "remain in Posting after DebitPostFailed and resume to Posted then RollingBackCredit immediately (reversal marked)" in {
+        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubAccountMessenger expects(accountIdToCredit, fullCredit) once
+
+          stubAccountMessenger expects(accountIdToDebit, fullPastPost) once //This one is the first attempt that will be rejected
+
+          stubAccountMessenger expects(accountIdToDebit, fullPastPost) once //This one is the third attempt after rejection. Premature resume must be ignored
+
+          stubResultMessenger expects TransactionSuccessful(txnId, debitPostedAccountResultingBalance, expectedCreditResultingBalance) once
+
+          stubAccountMessenger expects(accountIdToCredit, debitAdjust) once
+        }
+
+        given()
+
+        val prematureResumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        prematureResumeResult.hasNoEvents shouldBe true
+        prematureResumeResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        prematureResumeResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        prematureResumeResult.stateOfType[Posting].accountToDebit shouldBe accountIdToDebit
+        prematureResumeResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
+        prematureResumeResult.stateOfType[Posting].entryCode shouldBe entryCode
+        prematureResumeResult.stateOfType[Posting].transactionId shouldBe txnId
+        prematureResumeResult.stateOfType[Posting].reversalPending shouldBe false
+        prematureResumeResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
+        prematureResumeResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
+        prematureResumeResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
+
+        val creditResult = eventSourcedTestKit.runCommand(RejectAccounting(fullPastPost.hashCode(), accountIdToDebit, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE))
+        creditResult.events shouldBe Seq(DebitPostFailed(LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString))
+        creditResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        creditResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        creditResult.stateOfType[Posting].accountToDebit shouldBe accountIdToDebit
+        creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
+        creditResult.stateOfType[Posting].entryCode shouldBe entryCode
+        creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
+        creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
+        creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
+        creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        reverseResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        reverseResult.stateOfType[Posting].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Posting].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Posting].transactionId shouldBe txnId
+        reverseResult.stateOfType[Posting].reversalPending shouldBe true
+        reverseResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
+        reverseResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
+        reverseResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
+
+        val resumeResult = eventSourcedTestKit.runCommand(Resume(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        resumeResult.hasNoEvents shouldBe true
+        resumeResult.stateOfType[Posting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
+        resumeResult.stateOfType[Posting].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        resumeResult.stateOfType[Posting].accountToDebit shouldBe accountIdToDebit
+        resumeResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
+        resumeResult.stateOfType[Posting].entryCode shouldBe entryCode
+        resumeResult.stateOfType[Posting].transactionId shouldBe txnId
+        resumeResult.stateOfType[Posting].reversalPending shouldBe true
+        resumeResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
+        resumeResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
+        resumeResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
+
+        val postingResult = eventSourcedTestKit.runCommand(AcceptAccounting(fullPastPost.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime))
+        postingResult.events shouldBe Seq(DebitPostSucceeded(debitPostedAccountResultingBalance), ReversalRequested())
+        postingResult.stateOfType[RollingBackCredit].accountToDebit shouldBe accountIdToDebit
+        postingResult.stateOfType[RollingBackCredit].accountToCredit shouldBe accountIdToCredit
+        postingResult.stateOfType[RollingBackCredit].entryCode shouldBe entryCode
+        postingResult.stateOfType[RollingBackCredit].transactionId shouldBe txnId
+        postingResult.stateOfType[RollingBackCredit].creditedAmount shouldBe transactionAmount
+        postingResult.stateOfType[RollingBackCredit].amountCaptured shouldBe Some(transactionAmount)
+        postingResult.stateOfType[RollingBackCredit].code shouldBe None
+      }
     }
+
     "Posted" must {
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
       val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
@@ -569,6 +861,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
@@ -578,6 +871,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
@@ -590,6 +884,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe theTime
@@ -602,6 +897,7 @@ class TransactionSpec
         postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         postingResult.stateOfType[Posted].entryCode shouldBe entryCode
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
+        postingResult.stateOfType[Posted].reversalPending shouldBe false
         postingResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
       }
 
@@ -647,6 +943,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
@@ -656,6 +953,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
@@ -668,6 +966,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe theTime
@@ -680,6 +979,7 @@ class TransactionSpec
         postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         postingResult.stateOfType[Posted].entryCode shouldBe entryCode
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
+        postingResult.stateOfType[Posted].reversalPending shouldBe false
         postingResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
 
         val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
@@ -790,6 +1090,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
@@ -799,6 +1100,7 @@ class TransactionSpec
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Crediting].entryCode shouldBe entryCode
         debitResult.stateOfType[Crediting].transactionId shouldBe txnId
+        debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe transactionAmount
         debitResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
@@ -811,6 +1113,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe transactionAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe theTime
@@ -823,6 +1126,7 @@ class TransactionSpec
         postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         postingResult.stateOfType[Posted].entryCode shouldBe entryCode
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
+        postingResult.stateOfType[Posted].reversalPending shouldBe false
         postingResult.stateOfType[Posted].amountCaptured shouldBe transactionAmount
 
         val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
@@ -927,6 +1231,7 @@ class TransactionSpec
         rollbackResult.stateOfType[Reversed].debitReversedResultingBalance shouldBe expectedDebitReversedResultingBalance
       }
     }
+
     "Authorizing (auth only)" must {
       def given(): Unit = {
         val beginResult = eventSourcedTestKit.runCommand(Begin(entryCode, accountIdToDebit, accountIdToCredit, transactionAmount, ackProbe.ref, authOnly = true))
@@ -936,6 +1241,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
       }
 
@@ -957,8 +1263,42 @@ class TransactionSpec
         debitResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Pending].entryCode shouldBe entryCode
         debitResult.stateOfType[Pending].transactionId shouldBe txnId
+        debitResult.stateOfType[Pending].reversalPending shouldBe false
         debitResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Pending].debitHoldTimestamp shouldBe theTime
+      }
+
+      "transition to Pending then immediately to RollingBackDebit after DebitHoldSucceeded (reversal marked)" in {
+        val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
+
+        inSequence {
+          stubAccountMessenger expects(accountIdToDebit, debitHold) once
+
+          stubResultMessenger expects TransactionPending(txnId, expectedDebitResultingBalance) once
+        }
+
+        given()
+
+        val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
+        ackProbe.expectMessageType[TxnAck] shouldBe Ack
+        reverseResult.events shouldBe Seq(ReversalRequested())
+        reverseResult.stateOfType[Authorizing].accountToDebit shouldBe accountIdToDebit
+        reverseResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
+        reverseResult.stateOfType[Authorizing].entryCode shouldBe entryCode
+        reverseResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        reverseResult.stateOfType[Authorizing].reversalPending shouldBe true
+        reverseResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
+
+        val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
+        debitResult.events shouldBe Seq(DebitHoldSucceeded(expectedDebitResultingBalance, theTime), ReversalRequested())
+        debitResult.stateOfType[RollingBackDebit].accountToDebit shouldBe accountIdToDebit
+        debitResult.stateOfType[RollingBackDebit].accountToCredit shouldBe accountIdToCredit
+        debitResult.stateOfType[RollingBackDebit].entryCode shouldBe entryCode
+        debitResult.stateOfType[RollingBackDebit].transactionId shouldBe txnId
+        debitResult.stateOfType[RollingBackDebit].authorizedAmount shouldBe transactionAmount
+        debitResult.stateOfType[RollingBackDebit].amountCaptured shouldBe None
+        debitResult.stateOfType[RollingBackDebit].code shouldBe None
+        debitResult.stateOfType[RollingBackDebit].creditReversedResultingBalance shouldBe None
       }
 
       "transition to Failed after DebitHoldFailed" in {
@@ -992,6 +1332,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, theTime))
@@ -1001,6 +1342,7 @@ class TransactionSpec
         debitResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Pending].entryCode shouldBe entryCode
         debitResult.stateOfType[Pending].transactionId shouldBe txnId
+        debitResult.stateOfType[Pending].reversalPending shouldBe false
         debitResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Pending].debitHoldTimestamp shouldBe theTime
       }
@@ -1027,12 +1369,13 @@ class TransactionSpec
         pendingResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         pendingResult.stateOfType[Crediting].entryCode shouldBe entryCode
         pendingResult.stateOfType[Crediting].transactionId shouldBe txnId
+        pendingResult.stateOfType[Crediting].reversalPending shouldBe false
         pendingResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         pendingResult.stateOfType[Crediting].captureAmount shouldBe captureAmount
         pendingResult.stateOfType[Crediting].debitHoldTimestamp shouldBe theTime
       }
 
-      "transition to Reversed after ReverseRequested" in {
+      "transition to RollingBackDebit after ReverseRequested" in {
 
         inSequence {
           stubAccountMessenger expects(accountIdToDebit, debitHold) once
@@ -1080,6 +1423,7 @@ class TransactionSpec
         pendingResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
         pendingResult.stateOfType[Pending].entryCode shouldBe entryCode
         pendingResult.stateOfType[Pending].transactionId shouldBe txnId
+        pendingResult.stateOfType[Pending].reversalPending shouldBe false
         pendingResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         pendingResult.stateOfType[Pending].debitHoldTimestamp shouldBe theTime
       }
@@ -1100,6 +1444,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime))
@@ -1109,6 +1454,7 @@ class TransactionSpec
         debitResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Pending].entryCode shouldBe entryCode
         debitResult.stateOfType[Pending].transactionId shouldBe txnId
+        debitResult.stateOfType[Pending].reversalPending shouldBe false
         debitResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Pending].debitHoldTimestamp shouldBe holdTime
 
@@ -1120,6 +1466,7 @@ class TransactionSpec
         pendingResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         pendingResult.stateOfType[Crediting].entryCode shouldBe entryCode
         pendingResult.stateOfType[Crediting].transactionId shouldBe txnId
+        pendingResult.stateOfType[Crediting].reversalPending shouldBe false
         pendingResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         pendingResult.stateOfType[Crediting].captureAmount shouldBe captureAmount
         pendingResult.stateOfType[Crediting].debitHoldTimestamp shouldBe holdTime
@@ -1147,6 +1494,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe captureAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -1195,6 +1543,7 @@ class TransactionSpec
         beginResult.stateOfType[Authorizing].accountToCredit shouldBe accountIdToCredit
         beginResult.stateOfType[Authorizing].entryCode shouldBe entryCode
         beginResult.stateOfType[Authorizing].transactionId shouldBe txnId
+        beginResult.stateOfType[Authorizing].reversalPending shouldBe false
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe transactionAmount
 
         val debitResult = eventSourcedTestKit.runCommand(AcceptAccounting(debitHold.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime))
@@ -1204,6 +1553,7 @@ class TransactionSpec
         debitResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
         debitResult.stateOfType[Pending].entryCode shouldBe entryCode
         debitResult.stateOfType[Pending].transactionId shouldBe txnId
+        debitResult.stateOfType[Pending].reversalPending shouldBe false
         debitResult.stateOfType[Pending].amountAuthorized shouldBe transactionAmount
         debitResult.stateOfType[Pending].debitHoldTimestamp shouldBe holdTime
 
@@ -1215,6 +1565,7 @@ class TransactionSpec
         pendingResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
         pendingResult.stateOfType[Crediting].entryCode shouldBe entryCode
         pendingResult.stateOfType[Crediting].transactionId shouldBe txnId
+        pendingResult.stateOfType[Crediting].reversalPending shouldBe false
         pendingResult.stateOfType[Crediting].amountAuthorized shouldBe transactionAmount
         pendingResult.stateOfType[Crediting].captureAmount shouldBe captureAmount
         pendingResult.stateOfType[Crediting].debitHoldTimestamp shouldBe holdTime
@@ -1227,6 +1578,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe captureAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -1257,6 +1609,7 @@ class TransactionSpec
         creditResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posted].entryCode shouldBe entryCode
         creditResult.stateOfType[Posted].transactionId shouldBe txnId
+        creditResult.stateOfType[Posted].reversalPending shouldBe false
         creditResult.stateOfType[Posted].amountCaptured shouldBe captureAmount
       }
 
@@ -1287,6 +1640,7 @@ class TransactionSpec
         creditResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Posting].entryCode shouldBe entryCode
         creditResult.stateOfType[Posting].transactionId shouldBe txnId
+        creditResult.stateOfType[Posting].reversalPending shouldBe false
         creditResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         creditResult.stateOfType[Posting].captureAmount shouldBe captureAmount
         creditResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -1300,6 +1654,7 @@ class TransactionSpec
         resumeResult.stateOfType[Posting].accountToCredit shouldBe accountIdToCredit
         resumeResult.stateOfType[Posting].entryCode shouldBe entryCode
         resumeResult.stateOfType[Posting].transactionId shouldBe txnId
+        resumeResult.stateOfType[Posting].reversalPending shouldBe false
         resumeResult.stateOfType[Posting].amountAuthorized shouldBe transactionAmount
         resumeResult.stateOfType[Posting].captureAmount shouldBe captureAmount
         resumeResult.stateOfType[Posting].debitHoldTimestamp shouldBe holdTime
@@ -1312,6 +1667,7 @@ class TransactionSpec
         postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
         postingResult.stateOfType[Posted].entryCode shouldBe entryCode
         postingResult.stateOfType[Posted].transactionId shouldBe txnId
+        postingResult.stateOfType[Posted].reversalPending shouldBe false
         postingResult.stateOfType[Posted].amountCaptured shouldBe captureAmount
       }
     }

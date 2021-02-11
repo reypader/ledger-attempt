@@ -8,7 +8,7 @@ import io.openledger.events._
 
 case class Ready(transactionId: String) extends TransactionState {
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): PartialFunction[TransactionEvent, TransactionState] = {
-    case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly) => Authorizing(entryCode, transactionId, accountToDebit, accountToCredit, amount, authOnly)
+    case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly) => Authorizing(entryCode, transactionId, accountToDebit, accountToCredit, amount, authOnly,reversalPending = false)
     case AdjustRequested(entryCode, accountToAdjust, amount, mode) => Adjusting(entryCode, transactionId, accountToAdjust, amount, mode)
   }
 

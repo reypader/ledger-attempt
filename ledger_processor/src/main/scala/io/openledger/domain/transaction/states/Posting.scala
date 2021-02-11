@@ -10,12 +10,13 @@ import io.openledger.events._
 
 import java.time.OffsetDateTime
 
-case class Posting(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, captureAmount: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
+case class Posting(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, captureAmount: BigDecimal, debitedAccountResultingBalance: ResultingBalance, creditedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime, reversalPending: Boolean, failedPosting: Boolean = false) extends TransactionState {
   private val stateCommand = Account.Post(transactionId, entryCode, captureAmount, amountAuthorized - captureAmount, debitHoldTimestamp)
 
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): PartialFunction[TransactionEvent, TransactionState] = {
-    case DebitPostSucceeded(debitPostedAccountResultingBalance) => Posted(entryCode, transactionId, accountToDebit, accountToCredit, captureAmount, debitPostedAccountResultingBalance, creditedAccountResultingBalance)
-    case DebitPostFailed(_) => this
+    case DebitPostSucceeded(debitPostedAccountResultingBalance) => Posted(entryCode, transactionId, accountToDebit, accountToCredit, captureAmount, debitPostedAccountResultingBalance, creditedAccountResultingBalance, reversalPending)
+    case DebitPostFailed(_) => copy(failedPosting = true)
+    case ReversalRequested() => copy(reversalPending = true)
   }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): PartialFunction[TransactionCommand, Effect[TransactionEvent, TransactionState]] = {
@@ -26,9 +27,15 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
     case Resume(replyTo) =>
       Effect.none
         .thenRun { next: TransactionState =>
-          next.proceed()
+          if (failedPosting) {
+            next.proceed()
+          }
           replyTo ! Ack
         }
+    case Reverse(replyTo) => Effect.persist(ReversalRequested())
+      .thenRun { next: TransactionState =>
+        replyTo ! Ack
+      }
   }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {

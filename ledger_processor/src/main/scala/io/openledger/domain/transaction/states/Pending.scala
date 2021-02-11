@@ -9,9 +9,9 @@ import io.openledger.{LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
-case class Pending(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, debitedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime) extends TransactionState {
+case class Pending(entryCode: String, transactionId: String, accountToDebit: String, accountToCredit: String, amountAuthorized: BigDecimal, debitedAccountResultingBalance: ResultingBalance, debitHoldTimestamp: OffsetDateTime,reversalPending:Boolean) extends TransactionState {
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): PartialFunction[TransactionEvent, TransactionState] = {
-    case CaptureRequested(captureAmount) => Crediting(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, captureAmount, debitedAccountResultingBalance, debitHoldTimestamp)
+    case CaptureRequested(captureAmount) => Crediting(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, captureAmount, debitedAccountResultingBalance, debitHoldTimestamp,reversalPending)
     case ReversalRequested() => RollingBackDebit(entryCode, transactionId, accountToDebit, accountToCredit, amountAuthorized, None, None, None)
   }
 
@@ -39,5 +39,10 @@ case class Pending(entryCode: String, transactionId: String, accountToDebit: Str
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {
     context.log.info(s"Awaiting Capture on Pending")
     resultMessenger(TransactionPending(transactionId, debitedAccountResultingBalance))
+
+    if (reversalPending){
+      context.log.info(s"Reversal marked on Pending state. Triggering self-reversal")
+      context.self ! Reverse(context.system.ignoreRef)
+    }
   }
 }
