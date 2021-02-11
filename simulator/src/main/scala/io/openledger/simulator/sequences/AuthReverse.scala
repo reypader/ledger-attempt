@@ -15,7 +15,7 @@ case class AuthReverse(participants: Seq[String]) extends SequenceGenerator {
       Seq(
         TransactionRequest(
           Operation.Authorize(
-            Authorize(entryCode = "AUTH_CAP", transactionId = txnId, accountToDebit = pair._1, accountToCredit = pair._2, amount = 1)
+            Authorize(entryCode = "AUTH_REV", transactionId = txnId, accountToDebit = pair._1, accountToCredit = pair._2, amount = 1)
           )
         )
       )

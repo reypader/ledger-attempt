@@ -2,13 +2,14 @@ package io.openledger.simulator.sequences
 
 import io.openledger.kafka_operations.TransactionRequest.Operation
 import io.openledger.kafka_operations.{Reverse, TransactionRequest}
+import org.slf4j.LoggerFactory
 
 trait SequenceGenerator {
 
   def createPairs(participants: Seq[String]): Seq[(String, String)] = {
     var pairs = Seq[(String, String)]()
-    for (a <- 0 until participants.size - 1; b <- 1 until participants.size) {
-      val pair = (participants(a), participants(b))
+    for (a <- 0 until participants.size - 1) {
+      val pair = (participants(a), participants(a+1))
       pairs = pairs :+ pair
     }
     pairs :+ (participants.last, participants.head)

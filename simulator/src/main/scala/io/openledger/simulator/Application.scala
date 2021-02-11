@@ -12,7 +12,7 @@ import io.openledger.AccountingMode
 import io.openledger.api.http.Operations.{AccountResponse, AdjustRequest, OpenAccountRequest}
 import io.openledger.api.http.{JsonSupport, Operations}
 import io.openledger.kafka_operations.TransactionRequest.Operation
-import io.openledger.kafka_operations.TransactionResult
+import io.openledger.kafka_operations.{Capture, TransactionRequest, TransactionResult}
 import io.openledger.simulator.sequences._
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -30,9 +30,9 @@ import scala.util.Random
 object Application extends App with JsonSupport {
   val ledgerHost = sys.env.getOrElse("LEDGER_HTTP_HOST", "openledger:8080")
   val kafkaBootstraps = sys.env.getOrElse("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-  val numDebitAccounts = sys.env.getOrElse("DEBIT_ACCOUNTS", "2").toInt
-  val numCreditAccounts = sys.env.getOrElse("CREDIT_ACCOUNTS", "2").toInt
-  val iterations = sys.env.getOrElse("ITERATIONS", "2").toInt
+  val numDebitAccounts = sys.env.getOrElse("DEBIT_ACCOUNTS", "10").toInt
+  val numCreditAccounts = sys.env.getOrElse("CREDIT_ACCOUNTS", "10").toInt
+  val iterations = sys.env.getOrElse("ITERATIONS", "100").toInt
 
   val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -79,24 +79,39 @@ object Application extends App with JsonSupport {
   val transferRev = Source(1 to iterations).map(_ => TransferReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
   logger.info(s"${iterations} iterations of ${AuthCaptureRoundTrip(Random.shuffle(accounts)).toString}")
   val authCap = Source(1 to iterations).map(_ => AuthCaptureRoundTrip(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  logger.info(s"${iterations} iterations of ${AuthCaptureReverse(Random.shuffle(accounts)).toString}")
-  val authCapRev = Source(1 to iterations).map(_ => AuthCaptureReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
+  //  logger.info(s"${iterations} iterations of ${AuthCaptureReverse(Random.shuffle(accounts)).toString}")
+  //  val authCapRev = Source(1 to iterations).map(_ => AuthCaptureReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
   logger.info(s"${iterations} iterations of ${AuthPartialCaptureRoundTrip(Random.shuffle(accounts)).toString}")
   val authPcap = Source(1 to iterations).map(_ => AuthPartialCaptureRoundTrip(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  logger.info(s"${iterations} iterations of ${AuthPartialCaptureReverse(Random.shuffle(accounts)).toString}")
-  val authPcapRev = Source(1 to iterations).map(_ => AuthPartialCaptureReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
+  //  logger.info(s"${iterations} iterations of ${AuthPartialCaptureReverse(Random.shuffle(accounts)).toString}")
+  //  val authPcapRev = Source(1 to iterations).map(_ => AuthPartialCaptureReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
   logger.info(s"${iterations} iterations of ${AuthReverse(Random.shuffle(accounts)).toString}")
   val authRev = Source(1 to iterations).map(_ => AuthReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
 
+  var capturables = Set[String]()
   val startTime = OffsetDateTime.now()
   logger.info(s"Sending requests. This may take a while...")
   val merged: (Map[String, Int], Int) = Await.result(
-    Source.combine(transfer, transferRev, authCap, authCapRev, authPcap, authPcapRev, authRev)(Merge(_))
+    Source.combine(
+      transfer,
+      transferRev,
+      authCap,
+      //      authCapRev,
+      authPcap,
+      //      authPcapRev,
+      authRev
+    )(Merge(_))
       .log("REQUESTS")
+      .filter(p => p.operation match {
+        case Operation.Capture(value) => {
+          capturables += value.transactionId
+          false
+        }
+        case _ => true
+      })
       .map(result => ProducerMessage.single(new ProducerRecord("openledger_incoming", result.operation match {
         case Operation.Simple(value) => value.transactionId
         case Operation.Authorize(value) => value.transactionId
-        case Operation.Capture(value) => value.transactionId
         case Operation.Reverse(value) => value.transactionId
         case _ => throw new IllegalArgumentException()
       }, result.toByteArray)))
@@ -105,7 +120,8 @@ object Application extends App with JsonSupport {
         keySerializer = new StringSerializer,
         valueSerializer = new ByteArraySerializer
       ).withBootstrapServers(kafkaBootstraps)))
-      .map(_ => 1).toMat(Sink.fold[Int, Int](0)(_ + _))(Keep.right).run().flatMap(n => {
+      .map(_ => 1).toMat(Sink.fold[Int, Int](0)(_ + _))(Keep.right).run().flatMap(x => {
+      val n = x + accounts.size + capturables.size
       logger.info(s"Sent $n messages; waiting for responses. This may take a while...")
       Consumer.plainSource(ConsumerSettings(
         config = system.settings.config.getConfig("akka.kafka.consumer"),
@@ -117,6 +133,18 @@ object Application extends App with JsonSupport {
           val result = TransactionResult.parseFrom(consumerRecord.value())
           if (result.status == "REJECTED" || result.status == "FAILED") {
             logger.error(s"${result.transactionId} problem: ${result.code}")
+          }
+          if (capturables.contains(result.transactionId)) {
+            capturables -= result.transactionId
+            Source(Seq(new ProducerRecord("openledger_incoming", result.transactionId, TransactionRequest(
+              Operation.Capture(
+                Capture(transactionId = result.transactionId, amountToCapture = 1)
+              )
+            ).toByteArray))).runWith(Producer.plainSink(ProducerSettings(
+              config = system.settings.config.getConfig("akka.kafka.producer"),
+              keySerializer = new StringSerializer,
+              valueSerializer = new ByteArraySerializer
+            ).withBootstrapServers(kafkaBootstraps)))
           }
           result.status
         })
