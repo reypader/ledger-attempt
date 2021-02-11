@@ -12,7 +12,6 @@ message TransactionRequest {
     Authorize authorize = 2;
     Capture capture = 3;
     Reverse reverse = 4;
-    Resume resume = 5;
   }
 
 }
@@ -35,9 +34,6 @@ message Capture {
   double amount_to_capture = 2;
 }
 message Reverse {
-  string transaction_id = 1;
-}
-message Resume {
   string transaction_id = 1;
 }
 message TransactionResult {

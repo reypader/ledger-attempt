@@ -15,7 +15,7 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
 
   override def handleEvent(event: TransactionEvent)(implicit context: ActorContext[TransactionCommand]): PartialFunction[TransactionEvent, TransactionState] = {
     case DebitPostSucceeded(debitPostedAccountResultingBalance) => Posted(entryCode, transactionId, accountToDebit, accountToCredit, captureAmount, debitPostedAccountResultingBalance, creditedAccountResultingBalance)
-    case DebitPostFailed(_) => this
+    case DebitPostFailed(_) => ResumablePosting(this)
   }
 
   override def handleCommand(command: Transaction.TransactionCommand)(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): PartialFunction[TransactionCommand, Effect[TransactionEvent, TransactionState]] = {
@@ -23,12 +23,6 @@ case class Posting(entryCode: String, transactionId: String, accountToDebit: Str
       Effect.persist(DebitPostSucceeded(resultingBalance)).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code) if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
       Effect.persist(DebitPostFailed(code.toString)).thenRun(_ => context.log.error(s"ALERT: Posting failed $code for $accountToDebit."))
-    case Resume(replyTo) =>
-      Effect.none
-        .thenRun { next: TransactionState =>
-          next.proceed()
-          replyTo ! Ack
-        }
   }
 
   override def proceed()(implicit context: ActorContext[TransactionCommand], accountMessenger: AccountMessenger, resultMessenger: ResultMessenger): Unit = {

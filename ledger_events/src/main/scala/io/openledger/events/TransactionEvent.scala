@@ -39,3 +39,5 @@ final case class DebitPostFailed(code: String) extends TransactionEvent
 final case class CreditAdjustmentFailed(code: String) extends TransactionEvent
 
 final case class DebitAdjustmentFailed(code: String) extends TransactionEvent
+
+final case class Resumed() extends TransactionEvent
