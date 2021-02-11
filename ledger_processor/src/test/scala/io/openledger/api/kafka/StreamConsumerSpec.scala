@@ -44,15 +44,6 @@ class StreamConsumerSpec extends ScalaTestWithActorTestKit
 
         testProbe.expectMessageType[StubCommittable]
       }
-      "Forward to probe on Op-Resume" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
-
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Resume(kafka_operations.Resume("txn")), offset), testProbe.ref)
-        transactionProbe.expectMessageType[Transaction.Resume].replyTo ! Ack
-
-        testProbe.expectMessageType[StubCommittable]
-      }
       "Forward to probe on Op-Reverse" in {
         stubTransactionResolver expects "txn" returning transactionProbe.ref once
 
@@ -107,15 +98,6 @@ class StreamConsumerSpec extends ScalaTestWithActorTestKit
         testProbe.expectMessageType[StubCommittable]
       }
 
-      "Forward to probe on Op-Resume - Nack" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
-
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Resume(kafka_operations.Resume("txn")), offset), testProbe.ref)
-        transactionProbe.expectMessageType[Transaction.Resume].replyTo ! Nack
-
-        testProbe.expectMessageType[StubCommittable]
-      }
       "Forward to probe on Op-Reverse - Nack" in {
         stubTransactionResolver expects "txn" returning transactionProbe.ref once
 

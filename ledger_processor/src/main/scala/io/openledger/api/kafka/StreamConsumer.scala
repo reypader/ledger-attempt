@@ -64,15 +64,6 @@ object StreamConsumer {
                   replyTo ! offset
               }
 
-            case Operation.Resume(value) =>
-              transactionResolver(value.transactionId).ask(Resume).onComplete {
-                case Failure(exception) =>
-                  context.log.error("Encountered Exception", exception)
-                  resultMessenger(CommandRejected(value.transactionId, LedgerError.INTERNAL_ERROR))
-                  replyTo ! offset
-                case Success(_) =>
-                  replyTo ! offset
-              }
           }
           Behaviors.same
 
