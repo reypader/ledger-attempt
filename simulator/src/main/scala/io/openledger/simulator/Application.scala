@@ -38,7 +38,7 @@ object Application extends App with JsonSupport {
   val numDebitAccounts = sys.env.getOrElse("DEBIT_ACCOUNTS", "10").toInt
   val numCreditAccounts = sys.env.getOrElse("CREDIT_ACCOUNTS", "10").toInt
   val iterations = sys.env.getOrElse("ITERATIONS", "100").toInt
-
+  val startingBalances = 1000000
   val logger = LoggerFactory.getLogger(this.getClass)
 
   implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(
@@ -58,13 +58,13 @@ object Application extends App with JsonSupport {
   for (_ <- 0 until numCreditAccounts) {
     val id = UUID.randomUUID().toString
     openRequests = openRequests :+ (id, Operations.OpenAccountRequest(AccountingMode.CREDIT, id, Set.empty), Operations
-      .AdjustRequest(AccountingMode.CREDIT, UUID.randomUUID().toString, "ADJUSTMENT", 1000))
+      .AdjustRequest(AccountingMode.CREDIT, UUID.randomUUID().toString, "ADJUSTMENT", startingBalances))
     accounts = accounts :+ id
   }
   for (_ <- 0 until numDebitAccounts) {
     val id = UUID.randomUUID().toString
     openRequests = openRequests :+ (id, Operations.OpenAccountRequest(AccountingMode.DEBIT, id, Set.empty), Operations
-      .AdjustRequest(AccountingMode.DEBIT, UUID.randomUUID().toString, "ADJUSTMENT", 1000))
+      .AdjustRequest(AccountingMode.DEBIT, UUID.randomUUID().toString, "ADJUSTMENT", startingBalances))
     accounts = accounts :+ id
   }
 
@@ -178,7 +178,7 @@ object Application extends App with JsonSupport {
           .take(n)
           .map(consumerRecord => {
             val result = EntryResult.parseFrom(consumerRecord.value())
-            if (result.status == "REJECTED" || result.status == "FAILED") {
+            if (result.status == "REJECTED" || result.status == "FAILED" || result.status == "THROTTLED") {
               logger.error(s"${result.entryId} problem: ${result.code}")
             }
             if (capturables.contains(result.entryId)) {
@@ -226,7 +226,7 @@ object Application extends App with JsonSupport {
       r.flatMap(Unmarshal(_).to[String])
         .map(s => s.parseJson.convertTo[AccountResponse])
         .map(r => {
-          if (r.balance.available != 1000 || r.balance.current != 1000) {
+          if (r.balance.available != startingBalances || r.balance.current != startingBalances) {
             logger.error(s"Account ${r.id} failed. Balance: ${r.balance.available} / ${r.balance.current}")
           } else {
             logger.info(s"Account ${r.id} passed")
@@ -234,10 +234,11 @@ object Application extends App with JsonSupport {
         })
     )
     .map(f => Await.result(f, 10.seconds))
-  logger.info(s"DONE: ${merged._2} entrys")
+  logger.info(s"DONE: ${merged._2} entries")
   logger.info(s"Start: $startTime")
   logger.info(s"End: $endTime")
   logger.info(s"Elapsed: ${startTime.until(endTime, ChronoUnit.SECONDS)} seconds")
+  logger.info(s"Effective TPS: ${merged._2 / startTime.until(endTime, ChronoUnit.SECONDS)} operation per second")
   logger.info(merged._1.toString())
 
   system.terminate()

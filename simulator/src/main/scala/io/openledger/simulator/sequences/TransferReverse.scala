@@ -27,13 +27,13 @@ case class TransferReverse(participants: Seq[String]) extends SequenceGenerator 
     })
   }
 
-  private val entrys = reverse(pairs)
+  private val entries = reverse(pairs)
 
-  override def generate(): Seq[EntryRequest] = entrys
-  override def count(): Int = entrys.size
+  override def generate(): Seq[EntryRequest] = entries
+  override def count(): Int = entries.size
 
   override def toString: String =
-    s"${entrys.count(r => r.operation.isSimple)} transfers rotated among ${participants.size} accounts followed by ${entrys
+    s"${entries.count(r => r.operation.isSimple)} transfers rotated among ${participants.size} accounts followed by ${entries
       .count(r => r.operation.isReverse)} reversals"
 
 }

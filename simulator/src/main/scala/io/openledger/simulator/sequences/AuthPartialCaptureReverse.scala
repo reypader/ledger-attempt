@@ -61,13 +61,13 @@ case class AuthPartialCaptureReverse(participants: Seq[String]) extends Sequence
     }
   )
 
-  private val entrys = reverse(authCap("AUTH") ++ authCap("SIMPLE") ++ authCap("CAPTURE"))
+  private val entries = reverse(authCap("AUTH") ++ authCap("SIMPLE") ++ authCap("CAPTURE"))
 
-  override def generate(): Seq[EntryRequest] = entrys
-  override def count(): Int = entrys.size
+  override def generate(): Seq[EntryRequest] = entries
+  override def count(): Int = entries.size
   override def toString: String =
-    s"${entrys.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${entrys
-      .count(r => r.operation.isSimple)} transfers and ${entrys
-      .count(r => r.operation.isCapture)} partial captures and ${entrys.count(r => r.operation.isReverse)} reversals"
+    s"${entries.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${entries
+      .count(r => r.operation.isSimple)} transfers and ${entries
+      .count(r => r.operation.isCapture)} partial captures and ${entries.count(r => r.operation.isReverse)} reversals"
 
 }

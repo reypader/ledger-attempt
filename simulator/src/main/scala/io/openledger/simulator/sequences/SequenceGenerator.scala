@@ -15,8 +15,8 @@ trait SequenceGenerator {
     pairs :+ (participants.last, participants.head)
   }
 
-  def reverse(entrys: Seq[EntryRequest]): Seq[EntryRequest] = {
-    val grouped = entrys
+  def reverse(entries: Seq[EntryRequest]): Seq[EntryRequest] = {
+    val grouped = entries
       .flatMap(t =>
         Seq(
           t, {

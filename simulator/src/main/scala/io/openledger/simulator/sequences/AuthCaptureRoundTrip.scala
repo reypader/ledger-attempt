@@ -61,12 +61,12 @@ case class AuthCaptureRoundTrip(participants: Seq[String]) extends SequenceGener
     }
   )
 
-  private val entrys = authCap("AUTH") ++ authCap("SIMPLE") ++ authCap("CAPTURE")
+  private val entries = authCap("AUTH") ++ authCap("SIMPLE") ++ authCap("CAPTURE")
 
-  override def generate(): Seq[EntryRequest] = entrys
-  override def count(): Int = entrys.size
+  override def generate(): Seq[EntryRequest] = entries
+  override def count(): Int = entries.size
   override def toString: String =
-    s"${entrys.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${entrys
-      .count(r => r.operation.isSimple)} transfers and ${entrys.count(r => r.operation.isCapture)} full captures"
+    s"${entries.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${entries
+      .count(r => r.operation.isSimple)} transfers and ${entries.count(r => r.operation.isCapture)} full captures"
 
 }
