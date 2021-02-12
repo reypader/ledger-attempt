@@ -8,18 +8,28 @@ import io.openledger.domain.account.Account._
 import io.openledger.events._
 
 case class Ready(accountId: String) extends AccountState {
-  override def handleEvent(event: AccountEvent)(implicit context: ActorContext[AccountCommand]): PartialFunction[AccountEvent, AccountState] = {
-    case CreditAccountOpened(_, accountingTags) => CreditAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0), accountingTags)
-    case DebitAccountOpened(_, accountingTags) => DebitAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0), accountingTags)
+  override def handleEvent(
+      event: AccountEvent
+  )(implicit context: ActorContext[AccountCommand]): PartialFunction[AccountEvent, AccountState] = {
+    case CreditAccountOpened(_, accountingTags) =>
+      CreditAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0), accountingTags)
+    case DebitAccountOpened(_, accountingTags) =>
+      DebitAccount(accountId, BigDecimal(0), BigDecimal(0), BigDecimal(0), accountingTags)
   }
 
-  override def handleCommand(command: AccountCommand)(implicit context: ActorContext[AccountCommand], transactionMessenger: TransactionMessenger, now: TimeGen): PartialFunction[AccountCommand, Effect[AccountEvent, AccountState]] = {
-    case Open(mode, accountingTags) => mode match {
+  override def handleCommand(command: AccountCommand)(implicit
+      context: ActorContext[AccountCommand],
+      entryMessenger: EntryMessenger,
+      now: TimeGen
+  ): PartialFunction[AccountCommand, Effect[AccountEvent, AccountState]] = { case Open(mode, accountingTags) =>
+    mode match {
       case CREDIT =>
-        Effect.persist(CreditAccountOpened(now(), accountingTags))
+        Effect
+          .persist(CreditAccountOpened(now(), accountingTags))
           .thenNoReply()
       case DEBIT =>
-        Effect.persist(DebitAccountOpened(now(), accountingTags))
+        Effect
+          .persist(DebitAccountOpened(now(), accountingTags))
           .thenNoReply()
     }
   }

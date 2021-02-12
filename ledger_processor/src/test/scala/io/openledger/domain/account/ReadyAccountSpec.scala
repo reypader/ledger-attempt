@@ -14,26 +14,32 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import java.util.UUID
 import scala.language.postfixOps
 
-class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.parseString(
-  """
+class ReadyAccountSpec
+    extends ScalaTestWithActorTestKit(
+      config = ConfigFactory
+        .parseString("""
     akka.actor.allow-java-serialization = false
     akka.actor.serialization-bindings {
         "io.openledger.LedgerSerializable" = jackson-cbor
         "io.openledger.events.AccountEvent" = jackson-cbor
-        "io.openledger.events.TransactionEvent" = jackson-cbor
+        "io.openledger.events.EntryEvent" = jackson-cbor
     }
-    """).withFallback(EventSourcedBehaviorTestKit.config))
-  with AnyWordSpecLike
-  with BeforeAndAfterEach
-  with LogCapturing
-  with MockFactory {
+    """).withFallback(EventSourcedBehaviorTestKit.config)
+    )
+    with AnyWordSpecLike
+    with BeforeAndAfterEach
+    with LogCapturing
+    with MockFactory {
 
   private val theTime = DateUtils.now()
   private val entryCode = "ENTRY"
   private val stubMessenger = mockFunction[String, AccountingStatus, Unit]
   private val txnId = UUID.randomUUID().toString
   private val accountId = UUID.randomUUID().toString
-  private val eventSourcedTestKit = EventSourcedBehaviorTestKit[AccountCommand, AccountEvent, AccountState](system, Account(accountId)(stubMessenger, () => theTime))
+  private val eventSourcedTestKit = EventSourcedBehaviorTestKit[AccountCommand, AccountEvent, AccountState](
+    system,
+    Account(accountId)(stubMessenger, () => theTime)
+  )
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
@@ -59,7 +65,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
     "given any AccountingCommand" must {
       "reject Debit" in {
         val cmd = Debit(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0
@@ -69,7 +79,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
 
       "reject Credit" in {
         val cmd = Credit(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0
@@ -79,7 +93,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
 
       "reject DebitAdjust" in {
         val cmd = DebitAdjust(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0
@@ -89,7 +107,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
 
       "reject CreditAdjust" in {
         val cmd = CreditAdjust(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0
@@ -99,7 +121,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
 
       "reject DebitHold" in {
         val cmd = DebitHold(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0
@@ -109,7 +135,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
 
       "reject DebitPost" in {
         val cmd = Post(txnId, entryCode, 1, 1, DateUtils.now())
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0
@@ -119,7 +149,11 @@ class ReadyAccountSpec extends ScalaTestWithActorTestKit(config = ConfigFactory.
 
       "reject Release" in {
         val cmd = Release(txnId, entryCode, 1)
-        stubMessenger expects(txnId, AccountingFailed(cmd.hashCode(), accountId, LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE)) once
+        stubMessenger expects (txnId, AccountingFailed(
+          cmd.hashCode(),
+          accountId,
+          LedgerError.UNSUPPORTED_ACCOUNT_OPERATION_ON_CURRENT_STATE
+        )) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.hasNoEvents shouldBe true
         result.stateOfType[Ready].availableBalance shouldBe 0

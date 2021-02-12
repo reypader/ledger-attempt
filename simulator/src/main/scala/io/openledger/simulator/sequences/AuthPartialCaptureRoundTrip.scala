@@ -1,51 +1,72 @@
 package io.openledger.simulator.sequences
 
-import io.openledger.kafka_operations.TransactionRequest.Operation
+import io.openledger.kafka_operations.EntryRequest.Operation
 import io.openledger.kafka_operations._
 
 import java.util.UUID
 
 case class AuthPartialCaptureRoundTrip(participants: Seq[String]) extends SequenceGenerator {
 
-  private val authCap: Map[String, Seq[TransactionRequest]] = {
+  private val authCap: Map[String, Seq[EntryRequest]] = {
 
     createPairs(participants).flatMap(pair => {
       val txnId = UUID.randomUUID().toString
       Seq(
-        TransactionRequest(
+        EntryRequest(
           Operation.Authorize(
-            Authorize(entryCode = "AUTH_PARTCAP_REV", transactionId = txnId, accountToDebit = pair._1, accountToCredit = pair._2, amount = 2)
+            Authorize(
+              entryCode = "AUTH_PARTCAP_REV",
+              entryId = txnId,
+              accountToDebit = pair._1,
+              accountToCredit = pair._2,
+              amount = 2
+            )
           )
         ),
-        TransactionRequest(
+        EntryRequest(
           Operation.Simple(
-            Simple(entryCode = "TRANSFER_BETWEEN1", transactionId = UUID.randomUUID().toString, accountToDebit = pair._1, accountToCredit = pair._2, amount = 1)
+            Simple(
+              entryCode = "TRANSFER_BETWEEN1",
+              entryId = UUID.randomUUID().toString,
+              accountToDebit = pair._1,
+              accountToCredit = pair._2,
+              amount = 1
+            )
           )
         ),
-        TransactionRequest(
+        EntryRequest(
           Operation.Simple(
-            Simple(entryCode = "TRANSFER_BETWEEN2", transactionId = UUID.randomUUID().toString, accountToDebit = pair._1, accountToCredit = pair._2, amount = 1)
+            Simple(
+              entryCode = "TRANSFER_BETWEEN2",
+              entryId = UUID.randomUUID().toString,
+              accountToDebit = pair._1,
+              accountToCredit = pair._2,
+              amount = 1
+            )
           )
         ),
-        TransactionRequest(
+        EntryRequest(
           Operation.Capture(
-            Capture(transactionId = txnId, amountToCapture = 1)
+            Capture(entryId = txnId, amountToCapture = 1)
           )
         )
       )
+    })
+  }.groupBy(r =>
+    r.operation match {
+      case Operation.Authorize(_) => "AUTH"
+      case Operation.Simple(_)    => "SIMPLE"
+      case Operation.Capture(_)   => "CAPTURE"
+      case _                      => throw new IllegalArgumentException()
     }
-    )
-  }.groupBy(r => r.operation match {
-    case Operation.Authorize(_) => "AUTH"
-    case Operation.Simple(_) => "SIMPLE"
-    case Operation.Capture(_) => "CAPTURE"
-    case _ => throw new IllegalArgumentException()
-  })
+  )
 
-  private val transactions = authCap("AUTH") ++ authCap("SIMPLE")  ++ authCap("CAPTURE")
+  private val entrys = authCap("AUTH") ++ authCap("SIMPLE") ++ authCap("CAPTURE")
 
-  override def generate(): Seq[TransactionRequest] = transactions
-  override def count(): Int = transactions.size
-  override def toString: String = s"${transactions.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${transactions.count(r => r.operation.isSimple)} transfers and ${transactions.count(r => r.operation.isCapture)} partial captures"
+  override def generate(): Seq[EntryRequest] = entrys
+  override def count(): Int = entrys.size
+  override def toString: String =
+    s"${entrys.count(r => r.operation.isAuthorize)} auths rotated among ${participants.size} accounts followed by ${entrys
+      .count(r => r.operation.isSimple)} transfers and ${entrys.count(r => r.operation.isCapture)} partial captures"
 
 }

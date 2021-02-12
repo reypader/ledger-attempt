@@ -5,10 +5,10 @@ import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKi
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.kafka.ConsumerMessage.Committable
 import io.openledger.api.kafka.StreamConsumer._
-import io.openledger.domain.transaction.Transaction
-import io.openledger.domain.transaction.Transaction.{apply => _, _}
+import io.openledger.domain.entry.Entry
+import io.openledger.domain.entry.Entry.{apply => _, _}
 import io.openledger.kafka_operations
-import io.openledger.kafka_operations.TransactionRequest.Operation
+import io.openledger.kafka_operations.EntryRequest.Operation
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -19,46 +19,50 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.language.postfixOps
 
-class StreamConsumerSpec extends ScalaTestWithActorTestKit
-  with AnyWordSpecLike
-  with BeforeAndAfterEach
-  with LogCapturing
-  with MockFactory {
+class StreamConsumerSpec
+    extends ScalaTestWithActorTestKit
+    with AnyWordSpecLike
+    with BeforeAndAfterEach
+    with LogCapturing
+    with MockFactory {
 
   private val testProbe = testKit.createTestProbe[Committable]
-  private val transactionProbe = testKit.createTestProbe[TransactionCommand]
-  private val stubResultMessenger = mockFunction[TransactionResult, Unit]
+  private val entryProbe = testKit.createTestProbe[EntryCommand]
+  private val stubResultMessenger = mockFunction[EntryResult, Unit]
   private val offset = StubCommittable()
-  private val stubTransactionResolver = mockFunction[String, ActorRef[TransactionCommand]]
+  private val stubEntryResolver = mockFunction[String, ActorRef[EntryCommand]]
   private implicit val scheduler: Scheduler = testKit.system.scheduler
   private implicit val executionContext: ExecutionContextExecutor = testKit.system.executionContext
 
   "StreamConsumer" when {
     "tested in isolation" must {
       "Ack on NoOp" in {
-        stubTransactionResolver expects * never
+        stubEntryResolver expects * never
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
         underTest ! Receive(StreamMessage(Operation.Empty, offset), testProbe.ref)
-        transactionProbe.expectNoMessage(1.second)
+        entryProbe.expectNoMessage(1.second)
 
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Reverse" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
         underTest ! Receive(StreamMessage(Operation.Reverse(kafka_operations.Reverse("txn")), offset), testProbe.ref)
-        transactionProbe.expectMessageType[Transaction.Reverse].replyTo ! Ack
+        entryProbe.expectMessageType[Entry.Reverse].replyTo ! Ack
 
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Simple" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Simple(kafka_operations.Simple("ec", "txn", "d", "c", 1.5)), offset), testProbe.ref)
-        val sniffed = transactionProbe.expectMessageType[Transaction.Begin]
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
+        underTest ! Receive(
+          StreamMessage(Operation.Simple(kafka_operations.Simple("ec", "txn", "d", "c", 1.5)), offset),
+          testProbe.ref
+        )
+        val sniffed = entryProbe.expectMessageType[Entry.Begin]
         sniffed.authOnly shouldBe false
         sniffed.entryCode shouldBe "ec"
         sniffed.accountToCredit shouldBe "c"
@@ -66,15 +70,17 @@ class StreamConsumerSpec extends ScalaTestWithActorTestKit
         sniffed.amount shouldBe 1.5
         sniffed.replyTo ! Ack
 
-
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Authorize" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Authorize(kafka_operations.Authorize("ec", "txn", "d", "c", 1.5)), offset), testProbe.ref)
-        val sniffed = transactionProbe.expectMessageType[Transaction.Begin]
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
+        underTest ! Receive(
+          StreamMessage(Operation.Authorize(kafka_operations.Authorize("ec", "txn", "d", "c", 1.5)), offset),
+          testProbe.ref
+        )
+        val sniffed = entryProbe.expectMessageType[Entry.Begin]
         sniffed.authOnly shouldBe true
         sniffed.entryCode shouldBe "ec"
         sniffed.accountToCredit shouldBe "c"
@@ -82,37 +88,41 @@ class StreamConsumerSpec extends ScalaTestWithActorTestKit
         sniffed.amount shouldBe 1.5
         sniffed.replyTo ! Ack
 
-
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Capture" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Capture(kafka_operations.Capture("txn", 1.5)), offset), testProbe.ref)
-        val sniffed = transactionProbe.expectMessageType[Transaction.Capture]
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
+        underTest ! Receive(
+          StreamMessage(Operation.Capture(kafka_operations.Capture("txn", 1.5)), offset),
+          testProbe.ref
+        )
+        val sniffed = entryProbe.expectMessageType[Entry.Capture]
         sniffed.captureAmount shouldBe 1.5
         sniffed.replyTo ! Ack
-
 
         testProbe.expectMessageType[StubCommittable]
       }
 
       "Forward to probe on Op-Reverse - Nack" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
         underTest ! Receive(StreamMessage(Operation.Reverse(kafka_operations.Reverse("txn")), offset), testProbe.ref)
-        transactionProbe.expectMessageType[Transaction.Reverse].replyTo ! Nack
+        entryProbe.expectMessageType[Entry.Reverse].replyTo ! Nack
 
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Simple - Nack" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Simple(kafka_operations.Simple("ec", "txn", "d", "c", 1.5)), offset), testProbe.ref)
-        val sniffed = transactionProbe.expectMessageType[Transaction.Begin]
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
+        underTest ! Receive(
+          StreamMessage(Operation.Simple(kafka_operations.Simple("ec", "txn", "d", "c", 1.5)), offset),
+          testProbe.ref
+        )
+        val sniffed = entryProbe.expectMessageType[Entry.Begin]
         sniffed.authOnly shouldBe false
         sniffed.entryCode shouldBe "ec"
         sniffed.accountToCredit shouldBe "c"
@@ -120,15 +130,17 @@ class StreamConsumerSpec extends ScalaTestWithActorTestKit
         sniffed.amount shouldBe 1.5
         sniffed.replyTo ! Nack
 
-
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Authorize - Nack" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Authorize(kafka_operations.Authorize("ec", "txn", "d", "c", 1.5)), offset), testProbe.ref)
-        val sniffed = transactionProbe.expectMessageType[Transaction.Begin]
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
+        underTest ! Receive(
+          StreamMessage(Operation.Authorize(kafka_operations.Authorize("ec", "txn", "d", "c", 1.5)), offset),
+          testProbe.ref
+        )
+        val sniffed = entryProbe.expectMessageType[Entry.Begin]
         sniffed.authOnly shouldBe true
         sniffed.entryCode shouldBe "ec"
         sniffed.accountToCredit shouldBe "c"
@@ -136,18 +148,19 @@ class StreamConsumerSpec extends ScalaTestWithActorTestKit
         sniffed.amount shouldBe 1.5
         sniffed.replyTo ! Nack
 
-
         testProbe.expectMessageType[StubCommittable]
       }
       "Forward to probe on Op-Capture - Nack" in {
-        stubTransactionResolver expects "txn" returning transactionProbe.ref once
+        stubEntryResolver expects "txn" returning entryProbe.ref once
 
-        val underTest = testKit.spawn(StreamConsumer(stubTransactionResolver, stubResultMessenger))
-        underTest ! Receive(StreamMessage(Operation.Capture(kafka_operations.Capture("txn", 1.5)), offset), testProbe.ref)
-        val sniffed = transactionProbe.expectMessageType[Transaction.Capture]
+        val underTest = testKit.spawn(StreamConsumer(stubEntryResolver, stubResultMessenger))
+        underTest ! Receive(
+          StreamMessage(Operation.Capture(kafka_operations.Capture("txn", 1.5)), offset),
+          testProbe.ref
+        )
+        val sniffed = entryProbe.expectMessageType[Entry.Capture]
         sniffed.captureAmount shouldBe 1.5
         sniffed.replyTo ! Nack
-
 
         testProbe.expectMessageType[StubCommittable]
       }

@@ -10,6 +10,6 @@ object Operations {
 
   case class OpenAccountRequest(account_type: AccountMode, account_id: String, accounting_tags: Set[String])
 
-  case class AdjustRequest(adjustment_type: AccountMode, transaction_id: String, entry_code: String, amount: BigDecimal)
+  case class AdjustRequest(adjustment_type: AccountMode, entry_id: String, entry_code: String, amount: BigDecimal)
 
 }

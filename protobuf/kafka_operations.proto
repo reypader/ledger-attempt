@@ -6,7 +6,7 @@ option java_outer_classname = "KafkaOperations";
 
 package kafka.operations;
 
-message TransactionRequest {
+message EntryRequest {
   oneof operation {
     Simple simple = 1;
     Authorize authorize = 2;
@@ -17,27 +17,27 @@ message TransactionRequest {
 }
 message Simple {
   string entry_code = 1;
-  string transaction_id = 2;
+  string entry_id = 2;
   string account_to_debit = 3;
   string account_to_credit = 4;
   double amount = 5;
 }
 message Authorize {
   string entry_code = 1;
-  string transaction_id = 2;
+  string entry_id = 2;
   string account_to_debit = 3;
   string account_to_credit = 4;
   double amount = 5;
 }
 message Capture {
-  string transaction_id = 1;
+  string entry_id = 1;
   double amount_to_capture = 2;
 }
 message Reverse {
-  string transaction_id = 1;
+  string entry_id = 1;
 }
-message TransactionResult {
-  string transaction_id = 1;
+message EntryResult {
+  string entry_id = 1;
   string status = 2;
   string code = 3;
   Balance debited_account_balance = 4;

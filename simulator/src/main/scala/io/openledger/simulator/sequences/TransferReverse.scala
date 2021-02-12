@@ -1,6 +1,6 @@
 package io.openledger.simulator.sequences
 
-import io.openledger.kafka_operations.TransactionRequest.Operation
+import io.openledger.kafka_operations.EntryRequest.Operation
 import io.openledger.kafka_operations._
 
 import java.util.UUID
@@ -12,20 +12,28 @@ case class TransferReverse(participants: Seq[String]) extends SequenceGenerator 
     createPairs(participants).flatMap(pair => {
       val txnId = UUID.randomUUID().toString
       Seq(
-        TransactionRequest(
+        EntryRequest(
           Operation.Simple(
-            Simple(entryCode = "TRANSFER_REV", transactionId = txnId, accountToDebit = pair._1, accountToCredit = pair._2, amount = 1)
+            Simple(
+              entryCode = "TRANSFER_REV",
+              entryId = txnId,
+              accountToDebit = pair._1,
+              accountToCredit = pair._2,
+              amount = 1
+            )
           )
         )
       )
     })
   }
 
-  private val transactions = reverse(pairs)
+  private val entrys = reverse(pairs)
 
-  override def generate(): Seq[TransactionRequest] = transactions
-  override def count(): Int = transactions.size
+  override def generate(): Seq[EntryRequest] = entrys
+  override def count(): Int = entrys.size
 
-  override def toString: String = s"${transactions.count(r => r.operation.isSimple)} transfers rotated among ${participants.size} accounts followed by ${transactions.count(r => r.operation.isReverse)} reversals"
+  override def toString: String =
+    s"${entrys.count(r => r.operation.isSimple)} transfers rotated among ${participants.size} accounts followed by ${entrys
+      .count(r => r.operation.isReverse)} reversals"
 
 }
