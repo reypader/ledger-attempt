@@ -84,10 +84,10 @@ object Application extends App {
 
   HttpServerSetup(coordinatedShutdown, entryResolver, accountResolver).run()
 
-  for (
+  for {
     consumerActor <- system.ask((replyTo: ActorRef[ActorRef[StreamOp]]) =>
       SpawnProtocol.Spawn(
-        StreamConsumer(id => sharding.entityRefFor(EntryTypeKey, id), resultMessenger)(
+        StreamConsumer(id => sharding.entityRefFor(EntryTypeKey, id), accountResolver, resultMessenger)(
           streamConsumerSettings.processingTimeout,
           scheduler,
           executionContext
@@ -97,7 +97,7 @@ object Application extends App {
         replyTo
       )
     )(10.seconds, scheduler)
-  ) yield KafkaConsumerSetup(streamConsumerSettings, coordinatedShutdown, consumerActor).run()
+  } yield KafkaConsumerSetup(streamConsumerSettings, coordinatedShutdown, consumerActor).run()
 
   def entryMessenger(entryId: String, message: AccountingStatus): Unit = message match {
     case AccountingSuccessful(cmdHash, accountId, availableBalance, currentBalance, _, timestamp) =>

@@ -5,7 +5,7 @@ import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKi
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import com.typesafe.config.ConfigFactory
 import io.openledger.domain.account.Account._
-import io.openledger.domain.entry.Entry.{Get, apply => _, _}
+import io.openledger.domain.entry.Entry.{Ack, Get, apply => _, _}
 import io.openledger.domain.entry.states._
 import io.openledger.events._
 import io.openledger.{AccountingMode, DateUtils, LedgerError, ResultingBalance}

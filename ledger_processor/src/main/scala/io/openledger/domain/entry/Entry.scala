@@ -158,6 +158,12 @@ object Entry {
     override def code = errorCode.toString
   }
 
+  final case class CommandThrottled(entryId: String) extends EntryResult {
+    override def status = "THROTTLED"
+
+    override def code = LedgerError.COMMAND_THROTTLED.toString
+  }
+
   final case object Ack extends TxnAck
 
   final case object Nack extends TxnAck

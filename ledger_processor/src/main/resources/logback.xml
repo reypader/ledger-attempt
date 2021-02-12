@@ -19,7 +19,7 @@
     <logger name="org.postgresql" level="INFO"/>
     <logger name="org.apache" level="INFO"/>
 
-    <root level="DEBUG">
+    <root level="WARN">
         <appender-ref ref="ASYNC"/>
     </root>
 

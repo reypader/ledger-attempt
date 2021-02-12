@@ -133,6 +133,9 @@ class KafkaProducerSetup(settings: KafkaProducerSettings, coordinatedShutdown: C
           )
         case m @ CaptureRejected(entryId, _) =>
           kafka_operations.EntryResult(entryId, m.status, m.code, None, None)
+
+        case m @ CommandThrottled(entryId) =>
+          kafka_operations.EntryResult(entryId, m.status, m.code, None, None)
       }
       .map(result => new ProducerRecord(settings.topic, result.entryId, result.toByteArray))
       .toMat(Producer.plainSink(settings.kafkaProducerSettings))(Keep.both)
@@ -142,10 +145,10 @@ class KafkaProducerSetup(settings: KafkaProducerSettings, coordinatedShutdown: C
     coordinatedShutdown.addTask(CoordinatedShutdown.PhaseBeforeActorSystemTerminate, "shutdown-outgoing-kafka") { () =>
       {
         producerQueue.complete()
-        for (
-          _ <- producerQueue.watchCompletion();
+        for {
+          _ <- producerQueue.watchCompletion()
           _ <- producerCompletion
-        ) yield Done
+        } yield Done
       }
     }
     producerQueue

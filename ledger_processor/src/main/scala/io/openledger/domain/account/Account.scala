@@ -27,7 +27,8 @@ object Account {
           state
             .handleCommand(cmd)
             .orElse[AccountCommand, Effect[AccountEvent, AccountState]] {
-              case Get(replyTo) => Effect.none.thenReply(replyTo)(s => s)
+              case Get(replyTo)  => Effect.none.thenReply(replyTo)(s => s)
+              case Ping(replyTo) => Effect.none.thenReply(replyTo)(_ => Ack)
               case c: AccountingCommand =>
                 actorContext.log.warn(s"Unhandled command $cmd")
                 Effect.none.thenRun { _ =>
@@ -66,6 +67,12 @@ object Account {
   sealed trait AccountingStatus extends LedgerSerializable {
     def accountId: String
   }
+
+  trait AccAck
+
+  final case object Ack extends AccAck
+
+  final case class Ping(replyTo: ActorRef[AccAck]) extends AccountCommand
 
   final case class Open(mode: AccountMode, accountingTags: Set[String]) extends AccountCommand
 
