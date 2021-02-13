@@ -133,7 +133,7 @@ class ReadyAccountSpec
         result.stateOfType[Ready].accountId shouldBe accountId
       }
 
-      "reject DebitPost" in {
+      "reject DebitCapture" in {
         val cmd = DebitCapture(txnId, entryCode, 1, 1, DateUtils.now())
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),

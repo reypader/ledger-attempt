@@ -62,8 +62,8 @@ object StreamConsumer {
           case Operation.Empty =>
             context.log.warn("Received empty request")
             replyTo ! offset
-          case a: Operation =>
-            val f: (String, Future[TxnAck]) = a match {
+          case op: Operation =>
+            val f: (String, Future[TxnAck]) = op match {
               case Operation.Simple(value) =>
                 (
                   value.entryId,

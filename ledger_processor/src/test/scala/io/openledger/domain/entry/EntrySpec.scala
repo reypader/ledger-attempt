@@ -394,8 +394,8 @@ class EntrySpec
 
     "Crediting" must {
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
-      val holdTime = DateUtils.now().minus(Duration.ofDays(1))
-      val fullPastPost = DebitCapture(txnId, entryCode, entryAmount, BigDecimal(0), holdTime)
+      val authorizeTime = DateUtils.now().minus(Duration.ofDays(1))
+      val fullPastCapture = DebitCapture(txnId, entryCode, entryAmount, BigDecimal(0), authorizeTime)
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -413,9 +413,9 @@ class EntrySpec
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe entryAmount
 
         val debitResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime)
+          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, authorizeTime)
         )
-        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, holdTime))
+        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, authorizeTime))
         debitResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         debitResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
@@ -424,7 +424,7 @@ class EntrySpec
         debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe entryAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe entryAmount
-        debitResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe holdTime
+        debitResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe authorizeTime
 
         debitResult.stateOfType[Crediting]
       }
@@ -436,7 +436,7 @@ class EntrySpec
 
           stubAccountMessenger expects (accountIdToCredit, fullCredit) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once
         }
 
         given()
@@ -454,7 +454,7 @@ class EntrySpec
         creditResult.stateOfType[Capturing].reversalPending shouldBe false
         creditResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         creditResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
-        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
       }
 
@@ -492,7 +492,7 @@ class EntrySpec
 
           stubAccountMessenger expects (accountIdToCredit, fullCredit) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once
         }
 
         given()
@@ -508,7 +508,7 @@ class EntrySpec
         reverseResult.stateOfType[Crediting].reversalPending shouldBe true
         reverseResult.stateOfType[Crediting].amountAuthorized shouldBe entryAmount
         reverseResult.stateOfType[Crediting].captureAmount shouldBe entryAmount
-        reverseResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe holdTime
+        reverseResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val creditResult = eventSourcedTestKit.runCommand(
           AcceptAccounting(fullCredit.hashCode(), accountIdToCredit, expectedCreditResultingBalance, theTime)
@@ -523,7 +523,7 @@ class EntrySpec
         creditResult.stateOfType[Capturing].reversalPending shouldBe true
         creditResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         creditResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
-        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
       }
 
@@ -549,7 +549,7 @@ class EntrySpec
         reverseResult.stateOfType[Crediting].reversalPending shouldBe true
         reverseResult.stateOfType[Crediting].amountAuthorized shouldBe entryAmount
         reverseResult.stateOfType[Crediting].captureAmount shouldBe entryAmount
-        reverseResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe holdTime
+        reverseResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val creditResult = eventSourcedTestKit.runCommand(
           RejectAccounting(fullCredit.hashCode(), accountIdToCredit, LedgerError.DEBIT_ACCOUNT_INSUFFICIENT_AVAILABLE)
@@ -693,8 +693,8 @@ class EntrySpec
     "Capturing" must {
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
       val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
-      val holdTime = DateUtils.now().minus(Duration.ofDays(1))
-      val fullPastPost = DebitCapture(txnId, entryCode, entryAmount, BigDecimal(0), holdTime)
+      val authorizeTime = DateUtils.now().minus(Duration.ofDays(1))
+      val fullPastCapture = DebitCapture(txnId, entryCode, entryAmount, BigDecimal(0), authorizeTime)
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -712,9 +712,9 @@ class EntrySpec
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe entryAmount
 
         val debitResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime)
+          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, authorizeTime)
         )
-        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, holdTime))
+        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, authorizeTime))
         debitResult.stateOfType[Crediting].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         debitResult.stateOfType[Crediting].accountToDebit shouldBe accountIdToDebit
         debitResult.stateOfType[Crediting].accountToCredit shouldBe accountIdToCredit
@@ -723,7 +723,7 @@ class EntrySpec
         debitResult.stateOfType[Crediting].reversalPending shouldBe false
         debitResult.stateOfType[Crediting].amountAuthorized shouldBe entryAmount
         debitResult.stateOfType[Crediting].captureAmount shouldBe entryAmount
-        debitResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe holdTime
+        debitResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val creditResult = eventSourcedTestKit.runCommand(
           AcceptAccounting(fullCredit.hashCode(), accountIdToCredit, expectedCreditResultingBalance, theTime)
@@ -738,24 +738,24 @@ class EntrySpec
         creditResult.stateOfType[Capturing].reversalPending shouldBe false
         creditResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         creditResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
-        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
         creditResult.stateOfType[Capturing]
       }
 
       "transition to Posted after DebitCaptureSucceeded" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+        val debitCapturedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitAuth) once
 
           stubAccountMessenger expects (accountIdToCredit, fullCredit) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            debitPostedAccountResultingBalance,
+            debitCapturedAccountResultingBalance,
             expectedCreditResultingBalance
           ) once
         }
@@ -763,10 +763,10 @@ class EntrySpec
         given()
 
         val creditResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullPastPost.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime)
+          AcceptAccounting(fullPastCapture.hashCode(), accountIdToDebit, debitCapturedAccountResultingBalance, theTime)
         )
-        creditResult.events shouldBe Seq(DebitCaptureSucceeded(debitPostedAccountResultingBalance))
-        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
+        creditResult.events shouldBe Seq(DebitCaptureSucceeded(debitCapturedAccountResultingBalance))
+        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitCapturedAccountResultingBalance
         creditResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
         creditResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
         creditResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
@@ -777,20 +777,20 @@ class EntrySpec
       }
 
       "remain in Capturing after DebitCaptureFailed and resume to Posted" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+        val debitCapturedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitAuth) once
 
           stubAccountMessenger expects (accountIdToCredit, fullCredit) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once //"twice" doesn't work, strangely
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once //"twice" doesn't work, strangely
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            debitPostedAccountResultingBalance,
+            debitCapturedAccountResultingBalance,
             expectedCreditResultingBalance
           ) once
         }
@@ -798,7 +798,11 @@ class EntrySpec
         val givenState = given()
 
         val creditResult = eventSourcedTestKit.runCommand(
-          RejectAccounting(fullPastPost.hashCode(), accountIdToDebit, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)
+          RejectAccounting(
+            fullPastCapture.hashCode(),
+            accountIdToDebit,
+            LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE
+          )
         )
         creditResult.events shouldBe Seq(DebitCaptureFailed(LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString))
         creditResult.stateOfType[ResumableCapturing].actualState shouldBe givenState
@@ -815,35 +819,35 @@ class EntrySpec
         resumeResult.stateOfType[Capturing].reversalPending shouldBe false
         resumeResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         resumeResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
-        resumeResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        resumeResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
-        val postingResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullPastPost.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime)
+        val capturingResult = eventSourcedTestKit.runCommand(
+          AcceptAccounting(fullPastCapture.hashCode(), accountIdToDebit, debitCapturedAccountResultingBalance, theTime)
         )
-        postingResult.events shouldBe Seq(DebitCaptureSucceeded(debitPostedAccountResultingBalance))
-        postingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
-        postingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
-        postingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
-        postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
-        postingResult.stateOfType[Posted].entryCode shouldBe entryCode
-        postingResult.stateOfType[Posted].entryId shouldBe txnId
-        postingResult.stateOfType[Posted].reversalPending shouldBe false
-        postingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
+        capturingResult.events shouldBe Seq(DebitCaptureSucceeded(debitCapturedAccountResultingBalance))
+        capturingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitCapturedAccountResultingBalance
+        capturingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        capturingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        capturingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        capturingResult.stateOfType[Posted].entryCode shouldBe entryCode
+        capturingResult.stateOfType[Posted].entryId shouldBe txnId
+        capturingResult.stateOfType[Posted].reversalPending shouldBe false
+        capturingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
       }
 
       "transition to Posted then RollingBackCredit immediately after DebitCaptureSucceeded (reversal marked)" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+        val debitCapturedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitAuth) once
 
           stubAccountMessenger expects (accountIdToCredit, fullCredit) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            debitPostedAccountResultingBalance,
+            debitCapturedAccountResultingBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -864,13 +868,13 @@ class EntrySpec
         reverseResult.stateOfType[Capturing].reversalPending shouldBe true
         reverseResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         reverseResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
-        reverseResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        reverseResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val creditResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullPastPost.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime)
+          AcceptAccounting(fullPastCapture.hashCode(), accountIdToDebit, debitCapturedAccountResultingBalance, theTime)
         )
-        creditResult.event shouldBe DebitCaptureSucceeded(debitPostedAccountResultingBalance)
-        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
+        creditResult.event shouldBe DebitCaptureSucceeded(debitCapturedAccountResultingBalance)
+        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitCapturedAccountResultingBalance
         creditResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
         creditResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
         creditResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
@@ -891,25 +895,25 @@ class EntrySpec
       }
 
       "remain in Capturing after DebitCaptureFailed and resume to Posted then RollingBackCredit immediately (reversal marked)" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+        val debitCapturedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitAuth) once
 
           stubAccountMessenger expects (accountIdToCredit, fullCredit) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once //This one is the first attempt that will be rejected
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once //This one is the first attempt that will be rejected
 
           stubResultMessenger expects CommandRejected(
             txnId,
             LedgerError.UNSUPPORTED_ENTRY_OPERATION_ON_CURRENT_STATE
           ) once
 
-          stubAccountMessenger expects (accountIdToDebit, fullPastPost) once //This one is the third attempt after rejection. Premature resume must be ignored
+          stubAccountMessenger expects (accountIdToDebit, fullPastCapture) once //This one is the third attempt after rejection. Premature resume must be ignored
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            debitPostedAccountResultingBalance,
+            debitCapturedAccountResultingBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -924,7 +928,11 @@ class EntrySpec
         prematureResumeResult.stateOfType[Capturing] shouldBe givenState
 
         val creditResult = eventSourcedTestKit.runCommand(
-          RejectAccounting(fullPastPost.hashCode(), accountIdToDebit, LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE)
+          RejectAccounting(
+            fullPastCapture.hashCode(),
+            accountIdToDebit,
+            LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE
+          )
         )
         creditResult.events shouldBe Seq(DebitCaptureFailed(LedgerError.CREDIT_ACCOUNT_INSUFFICIENT_AVAILABLE.toString))
         creditResult.stateOfType[ResumableCapturing].actualState shouldBe givenState
@@ -948,20 +956,20 @@ class EntrySpec
         resumeResult.stateOfType[Capturing].reversalPending shouldBe true
         resumeResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         resumeResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
-        resumeResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        resumeResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
-        val postingResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullPastPost.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime)
+        val capturingResult = eventSourcedTestKit.runCommand(
+          AcceptAccounting(fullPastCapture.hashCode(), accountIdToDebit, debitCapturedAccountResultingBalance, theTime)
         )
-        postingResult.event shouldBe DebitCaptureSucceeded(debitPostedAccountResultingBalance)
-        postingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
-        postingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
-        postingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
-        postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
-        postingResult.stateOfType[Posted].entryCode shouldBe entryCode
-        postingResult.stateOfType[Posted].entryId shouldBe txnId
-        postingResult.stateOfType[Posted].reversalPending shouldBe true
-        postingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
+        capturingResult.event shouldBe DebitCaptureSucceeded(debitCapturedAccountResultingBalance)
+        capturingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitCapturedAccountResultingBalance
+        capturingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        capturingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        capturingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        capturingResult.stateOfType[Posted].entryCode shouldBe entryCode
+        capturingResult.stateOfType[Posted].entryId shouldBe txnId
+        capturingResult.stateOfType[Posted].reversalPending shouldBe true
+        capturingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
 
         val getResult = eventSourcedTestKit.runCommand(Get)
         getResult.hasNoEvents shouldBe true
@@ -978,7 +986,7 @@ class EntrySpec
     "Posted" must {
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
       val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
-      val expectedDebitPostedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+      val expecteddebitCapturedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -1024,20 +1032,20 @@ class EntrySpec
         creditResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
         creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe theTime
 
-        val postingResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullCapture.hashCode(), accountIdToDebit, expectedDebitPostedBalance, theTime)
+        val capturingResult = eventSourcedTestKit.runCommand(
+          AcceptAccounting(fullCapture.hashCode(), accountIdToDebit, expecteddebitCapturedBalance, theTime)
         )
-        postingResult.events shouldBe Seq(DebitCaptureSucceeded(expectedDebitPostedBalance))
-        postingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe expectedDebitPostedBalance
-        postingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
-        postingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
-        postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
-        postingResult.stateOfType[Posted].entryCode shouldBe entryCode
-        postingResult.stateOfType[Posted].entryId shouldBe txnId
-        postingResult.stateOfType[Posted].reversalPending shouldBe false
-        postingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
+        capturingResult.events shouldBe Seq(DebitCaptureSucceeded(expecteddebitCapturedBalance))
+        capturingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe expecteddebitCapturedBalance
+        capturingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        capturingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        capturingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        capturingResult.stateOfType[Posted].entryCode shouldBe entryCode
+        capturingResult.stateOfType[Posted].entryId shouldBe txnId
+        capturingResult.stateOfType[Posted].reversalPending shouldBe false
+        capturingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
 
-        postingResult.stateOfType[Posted]
+        capturingResult.stateOfType[Posted]
       }
 
       "transition to RollingBackCredit on ReversalRequested" in {
@@ -1050,7 +1058,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            expectedDebitPostedBalance,
+            expecteddebitCapturedBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -1077,7 +1085,7 @@ class EntrySpec
       val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
       val expectedCreditReversedResultingBalance: ResultingBalance =
         ResultingBalance(BigDecimal(4.75), BigDecimal(5.75))
-      val expectedDebitPostedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+      val expecteddebitCapturedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -1123,18 +1131,18 @@ class EntrySpec
         creditResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
         creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe theTime
 
-        val postingResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullCapture.hashCode(), accountIdToDebit, expectedDebitPostedBalance, theTime)
+        val capturingResult = eventSourcedTestKit.runCommand(
+          AcceptAccounting(fullCapture.hashCode(), accountIdToDebit, expecteddebitCapturedBalance, theTime)
         )
-        postingResult.events shouldBe Seq(DebitCaptureSucceeded(expectedDebitPostedBalance))
-        postingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe expectedDebitPostedBalance
-        postingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
-        postingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
-        postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
-        postingResult.stateOfType[Posted].entryCode shouldBe entryCode
-        postingResult.stateOfType[Posted].entryId shouldBe txnId
-        postingResult.stateOfType[Posted].reversalPending shouldBe false
-        postingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
+        capturingResult.events shouldBe Seq(DebitCaptureSucceeded(expecteddebitCapturedBalance))
+        capturingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe expecteddebitCapturedBalance
+        capturingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        capturingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        capturingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        capturingResult.stateOfType[Posted].entryCode shouldBe entryCode
+        capturingResult.stateOfType[Posted].entryId shouldBe txnId
+        capturingResult.stateOfType[Posted].reversalPending shouldBe false
+        capturingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
 
         val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
         ackProbe.expectMessageType[TxnAck] shouldBe Ack
@@ -1160,7 +1168,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            expectedDebitPostedBalance,
+            expecteddebitCapturedBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -1196,7 +1204,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            expectedDebitPostedBalance,
+            expecteddebitCapturedBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -1251,7 +1259,7 @@ class EntrySpec
       val expectedCreditReversedResultingBalance: ResultingBalance =
         ResultingBalance(BigDecimal(4.75), BigDecimal(5.75))
       val expectedDebitReversedResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4.25), BigDecimal(5.25))
-      val expectedDebitPostedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+      val expecteddebitCapturedBalance: ResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -1297,18 +1305,18 @@ class EntrySpec
         creditResult.stateOfType[Capturing].captureAmount shouldBe entryAmount
         creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe theTime
 
-        val postingResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(fullCapture.hashCode(), accountIdToDebit, expectedDebitPostedBalance, theTime)
+        val capturingResult = eventSourcedTestKit.runCommand(
+          AcceptAccounting(fullCapture.hashCode(), accountIdToDebit, expecteddebitCapturedBalance, theTime)
         )
-        postingResult.events shouldBe Seq(DebitCaptureSucceeded(expectedDebitPostedBalance))
-        postingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe expectedDebitPostedBalance
-        postingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
-        postingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
-        postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
-        postingResult.stateOfType[Posted].entryCode shouldBe entryCode
-        postingResult.stateOfType[Posted].entryId shouldBe txnId
-        postingResult.stateOfType[Posted].reversalPending shouldBe false
-        postingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
+        capturingResult.events shouldBe Seq(DebitCaptureSucceeded(expecteddebitCapturedBalance))
+        capturingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe expecteddebitCapturedBalance
+        capturingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        capturingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        capturingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        capturingResult.stateOfType[Posted].entryCode shouldBe entryCode
+        capturingResult.stateOfType[Posted].entryId shouldBe txnId
+        capturingResult.stateOfType[Posted].reversalPending shouldBe false
+        capturingResult.stateOfType[Posted].amountCaptured shouldBe entryAmount
 
         val reverseResult = eventSourcedTestKit.runCommand(Reverse(ackProbe.ref))
         ackProbe.expectMessageType[TxnAck] shouldBe Ack
@@ -1348,7 +1356,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            expectedDebitPostedBalance,
+            expecteddebitCapturedBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -1389,7 +1397,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            expectedDebitPostedBalance,
+            expecteddebitCapturedBalance,
             expectedCreditResultingBalance
           ) once
 
@@ -1680,10 +1688,10 @@ class EntrySpec
 
     "Crediting (partial)" must {
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
-      val holdTime = DateUtils.now().minus(Duration.ofDays(1))
+      val authorizeTime = DateUtils.now().minus(Duration.ofDays(1))
       val captureAmount: BigDecimal = BigDecimal(23)
       val partialCredit = Credit(txnId, entryCode, captureAmount)
-      val partialCapture = DebitCapture(txnId, entryCode, captureAmount, entryAmount - captureAmount, holdTime)
+      val partialCapture = DebitCapture(txnId, entryCode, captureAmount, entryAmount - captureAmount, authorizeTime)
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -1701,9 +1709,9 @@ class EntrySpec
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe entryAmount
 
         val debitResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime)
+          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, authorizeTime)
         )
-        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, holdTime))
+        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, authorizeTime))
         debitResult.stateOfType[Pending].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         debitResult.stateOfType[Pending].accountToDebit shouldBe accountIdToDebit
         debitResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
@@ -1711,7 +1719,7 @@ class EntrySpec
         debitResult.stateOfType[Pending].entryId shouldBe txnId
         debitResult.stateOfType[Pending].reversalPending shouldBe false
         debitResult.stateOfType[Pending].amountAuthorized shouldBe entryAmount
-        debitResult.stateOfType[Pending].debitAuthorizeTimestamp shouldBe holdTime
+        debitResult.stateOfType[Pending].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount, ackProbe.ref))
         ackProbe.expectMessageType[TxnAck] shouldBe Ack
@@ -1724,7 +1732,7 @@ class EntrySpec
         pendingResult.stateOfType[Crediting].reversalPending shouldBe false
         pendingResult.stateOfType[Crediting].amountAuthorized shouldBe entryAmount
         pendingResult.stateOfType[Crediting].captureAmount shouldBe captureAmount
-        pendingResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe holdTime
+        pendingResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe authorizeTime
 
         pendingResult.stateOfType[Crediting]
       }
@@ -1756,7 +1764,7 @@ class EntrySpec
         creditResult.stateOfType[Capturing].reversalPending shouldBe false
         creditResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         creditResult.stateOfType[Capturing].captureAmount shouldBe captureAmount
-        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
       }
 
@@ -1797,10 +1805,10 @@ class EntrySpec
       val expectedDebitResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(1), BigDecimal(2))
       val expectedCreditResultingBalance: ResultingBalance = ResultingBalance(BigDecimal(4), BigDecimal(5))
 
-      val holdTime = DateUtils.now().minus(Duration.ofDays(1))
+      val authorizeTime = DateUtils.now().minus(Duration.ofDays(1))
       val captureAmount: BigDecimal = BigDecimal(23)
       val partialCredit = Credit(txnId, entryCode, captureAmount)
-      val partialCapture = DebitCapture(txnId, entryCode, captureAmount, entryAmount - captureAmount, holdTime)
+      val partialCapture = DebitCapture(txnId, entryCode, captureAmount, entryAmount - captureAmount, authorizeTime)
 
       def given(): EntryState = {
         val beginResult = eventSourcedTestKit.runCommand(
@@ -1818,9 +1826,9 @@ class EntrySpec
         beginResult.stateOfType[Authorizing].amountAuthorized shouldBe entryAmount
 
         val debitResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, holdTime)
+          AcceptAccounting(debitAuth.hashCode(), accountIdToDebit, expectedDebitResultingBalance, authorizeTime)
         )
-        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, holdTime))
+        debitResult.events shouldBe Seq(DebitAuthorizeSucceeded(expectedDebitResultingBalance, authorizeTime))
         debitResult.stateOfType[Pending].debitedAccountResultingBalance shouldBe expectedDebitResultingBalance
         debitResult.stateOfType[Pending].accountToDebit shouldBe accountIdToDebit
         debitResult.stateOfType[Pending].accountToCredit shouldBe accountIdToCredit
@@ -1828,7 +1836,7 @@ class EntrySpec
         debitResult.stateOfType[Pending].entryId shouldBe txnId
         debitResult.stateOfType[Pending].reversalPending shouldBe false
         debitResult.stateOfType[Pending].amountAuthorized shouldBe entryAmount
-        debitResult.stateOfType[Pending].debitAuthorizeTimestamp shouldBe holdTime
+        debitResult.stateOfType[Pending].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val pendingResult = eventSourcedTestKit.runCommand(Capture(captureAmount, ackProbe.ref))
         ackProbe.expectMessageType[TxnAck] shouldBe Ack
@@ -1841,7 +1849,7 @@ class EntrySpec
         pendingResult.stateOfType[Crediting].reversalPending shouldBe false
         pendingResult.stateOfType[Crediting].amountAuthorized shouldBe entryAmount
         pendingResult.stateOfType[Crediting].captureAmount shouldBe captureAmount
-        pendingResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe holdTime
+        pendingResult.stateOfType[Crediting].debitAuthorizeTimestamp shouldBe authorizeTime
 
         val creditResult = eventSourcedTestKit.runCommand(
           AcceptAccounting(partialCredit.hashCode(), accountIdToCredit, expectedCreditResultingBalance, theTime)
@@ -1856,13 +1864,13 @@ class EntrySpec
         creditResult.stateOfType[Capturing].reversalPending shouldBe false
         creditResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         creditResult.stateOfType[Capturing].captureAmount shouldBe captureAmount
-        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        creditResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
         creditResult.stateOfType[Capturing]
       }
 
       "transition to Posted after DebitCaptureSucceeded" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+        val debitCapturedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitAuth) once
@@ -1875,7 +1883,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            debitPostedAccountResultingBalance,
+            debitCapturedAccountResultingBalance,
             expectedCreditResultingBalance
           ) once
         }
@@ -1883,10 +1891,10 @@ class EntrySpec
         given()
 
         val creditResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(partialCapture.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime)
+          AcceptAccounting(partialCapture.hashCode(), accountIdToDebit, debitCapturedAccountResultingBalance, theTime)
         )
-        creditResult.events shouldBe Seq(DebitCaptureSucceeded(debitPostedAccountResultingBalance))
-        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
+        creditResult.events shouldBe Seq(DebitCaptureSucceeded(debitCapturedAccountResultingBalance))
+        creditResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitCapturedAccountResultingBalance
         creditResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
         creditResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
         creditResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
@@ -1897,7 +1905,7 @@ class EntrySpec
       }
 
       "remain in Capturing after DebitCaptureFailed and can be resumed to Posted" in {
-        val debitPostedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
+        val debitCapturedAccountResultingBalance = ResultingBalance(BigDecimal(9), BigDecimal(9))
 
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitAuth) once
@@ -1912,7 +1920,7 @@ class EntrySpec
 
           stubResultMessenger expects EntrySuccessful(
             txnId,
-            debitPostedAccountResultingBalance,
+            debitCapturedAccountResultingBalance,
             expectedCreditResultingBalance
           ) once
         }
@@ -1941,20 +1949,20 @@ class EntrySpec
         resumeResult.stateOfType[Capturing].reversalPending shouldBe false
         resumeResult.stateOfType[Capturing].amountAuthorized shouldBe entryAmount
         resumeResult.stateOfType[Capturing].captureAmount shouldBe captureAmount
-        resumeResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe holdTime
+        resumeResult.stateOfType[Capturing].debitAuthorizeTimestamp shouldBe authorizeTime
 
-        val postingResult = eventSourcedTestKit.runCommand(
-          AcceptAccounting(partialCapture.hashCode(), accountIdToDebit, debitPostedAccountResultingBalance, theTime)
+        val capturingResult = eventSourcedTestKit.runCommand(
+          AcceptAccounting(partialCapture.hashCode(), accountIdToDebit, debitCapturedAccountResultingBalance, theTime)
         )
-        postingResult.events shouldBe Seq(DebitCaptureSucceeded(debitPostedAccountResultingBalance))
-        postingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitPostedAccountResultingBalance
-        postingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
-        postingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
-        postingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
-        postingResult.stateOfType[Posted].entryCode shouldBe entryCode
-        postingResult.stateOfType[Posted].entryId shouldBe txnId
-        postingResult.stateOfType[Posted].reversalPending shouldBe false
-        postingResult.stateOfType[Posted].amountCaptured shouldBe captureAmount
+        capturingResult.events shouldBe Seq(DebitCaptureSucceeded(debitCapturedAccountResultingBalance))
+        capturingResult.stateOfType[Posted].debitedAccountResultingBalance shouldBe debitCapturedAccountResultingBalance
+        capturingResult.stateOfType[Posted].creditedAccountResultingBalance shouldBe expectedCreditResultingBalance
+        capturingResult.stateOfType[Posted].accountToDebit shouldBe accountIdToDebit
+        capturingResult.stateOfType[Posted].accountToCredit shouldBe accountIdToCredit
+        capturingResult.stateOfType[Posted].entryCode shouldBe entryCode
+        capturingResult.stateOfType[Posted].entryId shouldBe txnId
+        capturingResult.stateOfType[Posted].reversalPending shouldBe false
+        capturingResult.stateOfType[Posted].amountCaptured shouldBe captureAmount
       }
     }
   }

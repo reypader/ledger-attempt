@@ -140,11 +140,13 @@ case class DebitAccount(
           )
         )
 
-    case DebitAuthorize(entryId, entryCode, amountToHold) =>
-      val newAvailableBalance = availableBalance + amountToHold
-      val newAuthorizedBalance = authorizedBalance + amountToHold
+    case DebitAuthorize(entryId, entryCode, amountToAuthorize) =>
+      val newAvailableBalance = availableBalance + amountToAuthorize
+      val newAuthorizedBalance = authorizedBalance + amountToAuthorize
       Effect
-        .persist(DebitAuthorized(entryId, entryCode, amountToHold, newAvailableBalance, newAuthorizedBalance, now()))
+        .persist(
+          DebitAuthorized(entryId, entryCode, amountToAuthorize, newAvailableBalance, newAuthorizedBalance, now())
+        )
         .thenRun(_ =>
           entryMessenger(
             entryId,
