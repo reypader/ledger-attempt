@@ -42,10 +42,14 @@ class DebitAccountSpec
     Account(accountId)(stubMessenger, () => theTime)
   )
 
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
+  }
+
   override protected def afterEach(): Unit = {
     super.afterEach()
     eventSourcedTestKit.clear()
-    eventSourcedTestKit.runCommand(Open(AccountingMode.DEBIT, Set.empty))
   }
 
   "A Debit Account" when {

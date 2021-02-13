@@ -42,10 +42,14 @@ class CreditAccountSpec
     Account(accountId)(stubMessenger, () => theTime)
   )
 
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT, Set.empty))
+  }
+
   override protected def afterEach(): Unit = {
     super.afterEach()
     eventSourcedTestKit.clear()
-    eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT, Set.empty))
   }
 
   "A Credit Account" when {
