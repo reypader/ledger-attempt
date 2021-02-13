@@ -1,6 +1,5 @@
 package io.openledger.projection.account
 
-import akka.persistence.typed.PersistenceId
 import akka.projection.eventsourced.EventEnvelope
 import akka.projection.jdbc.scaladsl.JdbcHandler
 import io.openledger.AccountingMode
@@ -10,7 +9,7 @@ import io.openledger.projection.PlainJdbcSession
 import io.openledger.projection.account.AccountInfoRepository.AccountInfo
 import io.openledger.projection.account.AccountOverdraftRepository.Overdraft
 import io.openledger.projection.account.AccountOverdraftRepository.OverdraftType.{OVERDRAWN, OVERPAID}
-import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement, MovementType}
+import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, EntryType, FullMovement}
 
 object AccountProjectionHandler {
   def apply(
@@ -26,7 +25,7 @@ class AccountProjectionHandler(
     accountOverdraftRepository: AccountOverdraftRepository
 ) extends JdbcHandler[EventEnvelope[AccountEvent], PlainJdbcSession] {
 
-  private val separator: Char = PersistenceId.DefaultSeparator.charAt(0)
+  private val separator: Char = '|'
   private def id(envelope: EventEnvelope[AccountEvent]): String =
     envelope.persistenceId.split(separator)(1)
 
@@ -71,7 +70,7 @@ class AccountProjectionHandler(
               accountId,
               entryId,
               entryCode,
-              MovementType.DEBIT,
+              EntryType.DEBIT,
               sign(info.mode, DEBIT) * amount,
               sign(info.mode, DEBIT) * amount,
               newAvailableBalance,
@@ -87,7 +86,7 @@ class AccountProjectionHandler(
               accountId,
               entryId,
               entryCode,
-              MovementType.CREDIT,
+              EntryType.CREDIT,
               sign(info.mode, CREDIT) * amount,
               sign(info.mode, CREDIT) * amount,
               newAvailableBalance,
@@ -103,7 +102,7 @@ class AccountProjectionHandler(
               accountId,
               entryId,
               entryCode,
-              MovementType.DEBIT_AUTHORIZE,
+              EntryType.DEBIT_AUTHORIZE,
               sign(info.mode, DEBIT) * amount,
               newAvailableBalance,
               timestamp
@@ -126,7 +125,7 @@ class AccountProjectionHandler(
               accountId,
               entryId,
               entryCode,
-              MovementType.DEBIT_CAPTURE,
+              EntryType.DEBIT_CAPTURE,
               sign(info.mode, CREDIT) * amountReturned,
               sign(info.mode, DEBIT) * amount,
               newAvailableBalance,
@@ -142,7 +141,7 @@ class AccountProjectionHandler(
               accountId,
               entryId,
               entryCode,
-              MovementType.DEBIT_RELEASE,
+              EntryType.DEBIT_RELEASE,
               sign(info.mode, CREDIT) * amountReturned,
               newAvailableBalance,
               timestamp

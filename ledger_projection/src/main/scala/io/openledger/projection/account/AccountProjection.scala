@@ -13,6 +13,17 @@ import io.openledger.events.AccountEvent
 import io.openledger.projection.PlainJdbcSession
 
 import javax.sql.DataSource
+
+object AccountProjection {
+  def apply(
+      datasource: DataSource,
+      accountInfoRepository: AccountInfoRepository,
+      accountStatementRepository: AccountStatementRepository,
+      accountOverdraftRepository: AccountOverdraftRepository
+  )(implicit system: ActorSystem[_]) =
+    new AccountProjection(datasource, accountInfoRepository, accountStatementRepository, accountOverdraftRepository)
+}
+
 class AccountProjection(
     datasource: DataSource,
     accountInfoRepository: AccountInfoRepository,

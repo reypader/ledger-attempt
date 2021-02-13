@@ -6,7 +6,7 @@ import io.openledger.AccountingMode.{CREDIT, DEBIT}
 import io.openledger.events._
 import io.openledger.projection.account.AccountInfoRepository.AccountInfo
 import io.openledger.projection.account.AccountOverdraftRepository.{Overdraft, OverdraftType}
-import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement, MovementType}
+import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement, EntryType}
 import io.openledger.projection.{PlainJdbcSession, UnnecessaryDatasourceStub}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.ScalaFutures
@@ -121,7 +121,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("acc", "eid", "ec", MovementType.DEBIT, 1, 1, 2, 3, now, now),
+            FullMovement("acc", "eid", "ec", EntryType.DEBIT, 1, 1, 2, 3, now, now),
             (mockConnection)
           )
           .once()
@@ -137,7 +137,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_AUTHORIZE, 1, 2, now),
+            AvailableMovement("acc", "eid", "ec", EntryType.DEBIT_AUTHORIZE, 1, 2, now),
             (mockConnection)
           )
           .once()
@@ -154,7 +154,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("acc", "eid", "ec", MovementType.DEBIT_CAPTURE, -5, 1, 2, 3, backThen, now),
+            FullMovement("acc", "eid", "ec", EntryType.DEBIT_CAPTURE, -5, 1, 2, 3, backThen, now),
             (mockConnection)
           )
           .once()
@@ -169,7 +169,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_RELEASE, -8, 2, now),
+            AvailableMovement("acc", "eid", "ec", EntryType.DEBIT_RELEASE, -8, 2, now),
             (mockConnection)
           )
           .once()
@@ -184,7 +184,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("acc", "eid", "ec", MovementType.CREDIT, -1, -1, 2, 3, now, now),
+            FullMovement("acc", "eid", "ec", EntryType.CREDIT, -1, -1, 2, 3, now, now),
             (mockConnection)
           )
           .once()
@@ -211,7 +211,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("acc", "eid", "ec", MovementType.DEBIT, -1, -1, 2, 3, now, now),
+            FullMovement("acc", "eid", "ec", EntryType.DEBIT, -1, -1, 2, 3, now, now),
             (mockConnection)
           )
           .once()
@@ -227,7 +227,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_AUTHORIZE, -1, 2, now),
+            AvailableMovement("acc", "eid", "ec", EntryType.DEBIT_AUTHORIZE, -1, 2, now),
             (mockConnection)
           )
           .once()
@@ -244,7 +244,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("acc", "eid", "ec", MovementType.DEBIT_CAPTURE, 5, -1, 2, 3, backThen, now),
+            FullMovement("acc", "eid", "ec", EntryType.DEBIT_CAPTURE, 5, -1, 2, 3, backThen, now),
             (mockConnection)
           )
           .once()
@@ -259,7 +259,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_RELEASE, 8, 2, now),
+            AvailableMovement("acc", "eid", "ec", EntryType.DEBIT_RELEASE, 8, 2, now),
             (mockConnection)
           )
           .once()
@@ -274,7 +274,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("acc", "eid", "ec", MovementType.CREDIT, 1, 1, 2, 3, now, now),
+            FullMovement("acc", "eid", "ec", EntryType.CREDIT, 1, 1, 2, 3, now, now),
             (mockConnection)
           )
           .once()

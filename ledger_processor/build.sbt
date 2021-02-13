@@ -11,6 +11,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence-typed" % akkaVersion,
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
+  "com.typesafe.slick" %% "slick" % SlickVersion,
+  "com.typesafe.slick" %% "slick-hikaricp" % SlickVersion,
   "com.typesafe.akka" %% "akka-persistence-testkit" % akkaVersion % Test
 )
 enablePlugins(JavaAppPackaging, AshScriptPlugin, DockerPlugin)
