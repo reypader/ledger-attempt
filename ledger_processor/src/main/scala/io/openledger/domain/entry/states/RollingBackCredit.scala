@@ -15,7 +15,7 @@ case class RollingBackCredit(
     creditedAmount: BigDecimal,
     amountCaptured: Option[BigDecimal],
     code: Option[String]
-) extends EntryState {
+) extends PairedEntry {
   private val stateCommand = Account.DebitAdjust(entryId, entryCode, creditedAmount)
 
   override def handleEvent(

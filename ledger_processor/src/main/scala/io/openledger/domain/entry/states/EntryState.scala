@@ -23,3 +23,8 @@ trait EntryState extends LedgerSerializable {
       resultMessenger: ResultMessenger
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]]
 }
+
+trait PairedEntry extends EntryState {
+  def accountToDebit: String
+  def accountToCredit: String
+}

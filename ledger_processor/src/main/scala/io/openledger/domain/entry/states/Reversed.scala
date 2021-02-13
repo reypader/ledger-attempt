@@ -10,9 +10,11 @@ import io.openledger.events.EntryEvent
 case class Reversed(
     entryCode: String,
     entryId: String,
+    accountToDebit: String,
+    accountToCredit: String,
     debitReversedResultingBalance: ResultingBalance,
     creditReversedResultingBalance: Option[ResultingBalance]
-) extends EntryState {
+) extends PairedEntry {
   override def handleEvent(event: EntryEvent)(implicit
       context: ActorContext[EntryCommand]
   ): PartialFunction[EntryEvent, EntryState] = PartialFunction.empty

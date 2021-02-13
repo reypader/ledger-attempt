@@ -20,7 +20,7 @@ case class Crediting(
     debitedAccountResultingBalance: ResultingBalance,
     debitHoldTimestamp: OffsetDateTime,
     reversalPending: Boolean
-) extends EntryState {
+) extends PairedEntry {
   private val stateCommand = Account.Credit(entryId, entryCode, captureAmount)
 
   override def handleEvent(

@@ -17,14 +17,22 @@ case class RollingBackDebit(
     amountCaptured: Option[BigDecimal],
     code: Option[String],
     creditReversedResultingBalance: Option[ResultingBalance]
-) extends EntryState {
+) extends PairedEntry {
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {
     case CreditAdjustmentDone(debitReversedResultingBalance) =>
       code match {
         case Some(code) => Failed(entryCode, entryId, code)
-        case None       => Reversed(entryCode, entryId, debitReversedResultingBalance, creditReversedResultingBalance)
+        case None =>
+          Reversed(
+            entryCode,
+            entryId,
+            accountToDebit,
+            accountToCredit,
+            debitReversedResultingBalance,
+            creditReversedResultingBalance
+          )
       }
     case CreditAdjustmentFailed(_) => ResumableRollingBackDebit(this)
   }

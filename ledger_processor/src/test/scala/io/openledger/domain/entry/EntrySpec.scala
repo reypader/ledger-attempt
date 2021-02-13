@@ -1366,13 +1366,15 @@ class EntrySpec
         creditResult.events shouldBe Seq(CreditAdjustmentDone(expectedDebitReversedResultingBalance))
         creditResult.stateOfType[Reversed].entryCode shouldBe entryCode
         creditResult.stateOfType[Reversed].entryId shouldBe txnId
+        creditResult.stateOfType[Reversed].accountToDebit shouldBe accountIdToDebit
+        creditResult.stateOfType[Reversed].accountToCredit shouldBe accountIdToCredit
         creditResult.stateOfType[Reversed].creditReversedResultingBalance shouldBe Some(
           expectedCreditReversedResultingBalance
         )
         creditResult.stateOfType[Reversed].debitReversedResultingBalance shouldBe expectedDebitReversedResultingBalance
       }
 
-      "remain in RollingBackDebit on CreditAdjustmentFailed then resumed to Failed" in {
+      "remain in RollingBackDebit on CreditAdjustmentFailed then resumed to Reversed" in {
         inSequence {
           stubAccountMessenger expects (accountIdToDebit, debitHold) once
 
@@ -1429,6 +1431,8 @@ class EntrySpec
         rollbackResult.events shouldBe Seq(CreditAdjustmentDone(expectedDebitReversedResultingBalance))
         rollbackResult.stateOfType[Reversed].entryCode shouldBe entryCode
         rollbackResult.stateOfType[Reversed].entryId shouldBe txnId
+        rollbackResult.stateOfType[Reversed].accountToDebit shouldBe accountIdToDebit
+        rollbackResult.stateOfType[Reversed].accountToCredit shouldBe accountIdToCredit
         rollbackResult.stateOfType[Reversed].creditReversedResultingBalance shouldBe Some(
           expectedCreditReversedResultingBalance
         )

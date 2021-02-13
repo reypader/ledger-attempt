@@ -15,7 +15,7 @@ case class Authorizing(
     amountAuthorized: BigDecimal,
     authOnly: Boolean,
     reversalPending: Boolean
-) extends EntryState {
+) extends PairedEntry {
   private val stateCommand = Account.DebitHold(entryId, entryCode, amountAuthorized)
 
   override def handleEvent(

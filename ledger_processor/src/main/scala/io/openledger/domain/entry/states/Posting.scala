@@ -22,7 +22,7 @@ case class Posting(
     debitHoldTimestamp: OffsetDateTime,
     reversalPending: Boolean,
     failedPosting: Boolean = false
-) extends EntryState {
+) extends PairedEntry {
   private val stateCommand =
     Account.Post(entryId, entryCode, captureAmount, amountAuthorized - captureAmount, debitHoldTimestamp)
 

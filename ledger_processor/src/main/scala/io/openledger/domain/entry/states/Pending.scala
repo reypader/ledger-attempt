@@ -18,7 +18,7 @@ case class Pending(
     debitedAccountResultingBalance: ResultingBalance,
     debitHoldTimestamp: OffsetDateTime,
     reversalPending: Boolean
-) extends EntryState {
+) extends PairedEntry {
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {

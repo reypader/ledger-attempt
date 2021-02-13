@@ -16,7 +16,7 @@ case class Posted(
     debitedAccountResultingBalance: ResultingBalance,
     creditedAccountResultingBalance: ResultingBalance,
     reversalPending: Boolean
-) extends EntryState {
+) extends PairedEntry {
   override def handleEvent(event: EntryEvent)(implicit
       context: ActorContext[EntryCommand]
   ): PartialFunction[EntryEvent, EntryState] = { case ReversalRequested() =>
