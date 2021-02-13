@@ -42,8 +42,8 @@ class CreditAccountSpec
     Account(accountId)(stubMessenger, () => theTime)
   )
 
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
+  override protected def afterEach(): Unit = {
+    super.afterEach()
     eventSourcedTestKit.clear()
     eventSourcedTestKit.runCommand(Open(AccountingMode.CREDIT, Set.empty))
   }

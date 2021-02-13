@@ -1,7 +1,8 @@
 package io.openledger.api.kafka
 
+import akka.Done
 import akka.actor.typed.scaladsl.AskPattern.Askable
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, RecipientRef, Scheduler}
 import akka.kafka.ConsumerMessage.Committable
 import akka.util.Timeout
@@ -9,6 +10,7 @@ import io.openledger.LedgerError
 import io.openledger.domain.account.Account
 import io.openledger.domain.account.Account.{AccountCommand, Ping}
 import io.openledger.domain.entry.Entry._
+import io.openledger.domain.entry.states.PairedEntry
 import io.openledger.kafka_operations.EntryRequest.Operation
 import org.slf4j.LoggerFactory
 
@@ -19,35 +21,29 @@ import scala.util.{Failure, Success}
 
 object StreamConsumer {
 
-  val logger = LoggerFactory.getLogger(StreamConsumer.getClass)
+  private val logger = LoggerFactory.getLogger(StreamConsumer.getClass)
 
-  def throttled(
-      entryId: String,
-      accountToDebit: String,
-      accountToCredit: String,
-      accountResolver: String => RecipientRef[AccountCommand],
-      resultMessenger: ResultMessenger,
-      ack: Committable,
-      replyTo: RecipientRef[Committable]
-  )(
-      task: () => Unit
-  )(implicit scheduler: Scheduler, executionContext: ExecutionContext): Unit = {
-    val d: Future[Account.AccAck] = accountResolver(accountToDebit).ask(Ping)(2.seconds, scheduler)
-    val c: Future[Account.AccAck] = accountResolver(accountToCredit).ask(Ping)(2.seconds, scheduler)
-    d.flatMap(_ => c).onComplete {
-      case Failure(exception) =>
-        exception match {
-          case _: TimeoutException =>
-            logger.error(s"ALERT: Account $accountToDebit or $accountToCredit is being throttled")
-            resultMessenger(CommandThrottled(entryId))
-            replyTo ! ack
-          case ex: Throwable =>
-            logger.error(s"ALERT: Failed to contact accounts", ex)
-            resultMessenger(CommandRejected(entryId, LedgerError.INTERNAL_ERROR))
-            replyTo ! ack
-        }
-      case Success(_) => task()
-    }
+  private def throttle(entryRef: RecipientRef[EntryCommand], accountResolver: String => RecipientRef[AccountCommand])(
+      implicit
+      scheduler: Scheduler,
+      executionContext: ExecutionContext
+  ): Future[Done] = {
+    entryRef
+      .ask(Get)(1.second, scheduler)
+      .flatMap({
+        case entry: PairedEntry =>
+          throttle(accountResolver(entry.accountToDebit), accountResolver(entry.accountToCredit))
+        case _ => Future(Done.done())
+      })
+  }
+
+  private def throttle(
+      accountToDebit: RecipientRef[AccountCommand],
+      accountToCredit: RecipientRef[AccountCommand]
+  )(implicit scheduler: Scheduler, executionContext: ExecutionContext): Future[Done] = {
+    val d: Future[Account.AccAck] = accountToDebit.ask(Ping)(1.second, scheduler)
+    val c: Future[Account.AccAck] = accountToCredit.ask(Ping)(1.second, scheduler)
+    d.flatMap(_ => c).map(_ => Done.done())
   }
 
   def apply(
@@ -66,75 +62,71 @@ object StreamConsumer {
           case Operation.Empty =>
             context.log.warn("Received empty request")
             replyTo ! offset
-
-          case Operation.Simple(value) =>
-            throttled(
-              value.entryId,
-              value.accountToDebit,
-              value.accountToCredit,
-              accountResolver,
-              resultMessenger,
-              offset,
-              replyTo
-            ) { () =>
-              entryResolver(value.entryId)
-                .ask(
-                  Begin(value.entryCode, value.accountToDebit, value.accountToCredit, value.amount, _, authOnly = false)
+          case a: Operation =>
+            val f: (String, Future[TxnAck]) = a match {
+              case Operation.Simple(value) =>
+                (
+                  value.entryId,
+                  throttle(accountResolver(value.accountToDebit), accountResolver(value.accountToCredit)).flatMap(_ =>
+                    entryResolver(value.entryId).ask(
+                      Begin(
+                        value.entryCode,
+                        value.accountToDebit,
+                        value.accountToCredit,
+                        value.amount,
+                        _,
+                        authOnly = false
+                      )
+                    )
+                  )
                 )
-                .onComplete {
-                  case Failure(exception) =>
-                    context.log.error("Encountered Exception", exception)
-                    resultMessenger(CommandRejected(value.entryId, LedgerError.INTERNAL_ERROR))
-                    replyTo ! offset
-                  case Success(_) =>
-                    replyTo ! offset
-                }
-            }
 
-          case Operation.Authorize(value) =>
-            throttled(
-              value.entryId,
-              value.accountToDebit,
-              value.accountToCredit,
-              accountResolver,
-              resultMessenger,
-              offset,
-              replyTo
-            ) { () =>
-              entryResolver(value.entryId)
-                .ask(
-                  Begin(value.entryCode, value.accountToDebit, value.accountToCredit, value.amount, _, authOnly = true)
+              case Operation.Authorize(value) =>
+                (
+                  value.entryId,
+                  throttle(accountResolver(value.accountToDebit), accountResolver(value.accountToCredit)).flatMap(_ =>
+                    entryResolver(value.entryId).ask(
+                      Begin(
+                        value.entryCode,
+                        value.accountToDebit,
+                        value.accountToCredit,
+                        value.amount,
+                        _,
+                        authOnly = true
+                      )
+                    )
+                  )
                 )
-                .onComplete {
-                  case Failure(exception) =>
-                    context.log.error("Encountered Exception", exception)
-                    resultMessenger(CommandRejected(value.entryId, LedgerError.INTERNAL_ERROR))
-                    replyTo ! offset
-                  case Success(_) =>
-                    replyTo ! offset
-                }
-            }
 
-          case Operation.Capture(value) =>
-            entryResolver(value.entryId).ask(Capture(value.amountToCapture, _)).onComplete {
+              case Operation.Capture(value) =>
+                val entryRef = entryResolver(value.entryId)
+                (
+                  value.entryId,
+                  throttle(entryRef, accountResolver).flatMap(_ => entryRef.ask(Capture(value.amountToCapture, _)))
+                )
+
+              case Operation.Reverse(value) =>
+                val entryRef = entryResolver(value.entryId)
+                (
+                  value.entryId,
+                  throttle(entryRef, accountResolver).flatMap(_ => entryRef.ask(Reverse))
+                )
+            }
+            f._2.onComplete {
               case Failure(exception) =>
-                context.log.error("Encountered Exception", exception)
-                resultMessenger(CommandRejected(value.entryId, LedgerError.INTERNAL_ERROR))
-                replyTo ! offset
+                exception match {
+                  case _: TimeoutException =>
+                    logger.error(s"ALERT: Accounts are being throttled")
+                    resultMessenger(CommandThrottled(f._1))
+                    replyTo ! offset
+                  case ex: Throwable =>
+                    logger.error("Encountered Exception", ex)
+                    resultMessenger(CommandRejected(f._1, LedgerError.INTERNAL_ERROR))
+                    replyTo ! offset
+                }
               case Success(_) =>
                 replyTo ! offset
             }
-
-          case Operation.Reverse(value) =>
-            entryResolver(value.entryId).ask(Reverse).onComplete {
-              case Failure(exception) =>
-                context.log.error("Encountered Exception", exception)
-                resultMessenger(CommandRejected(value.entryId, LedgerError.INTERNAL_ERROR))
-                replyTo ! offset
-              case Success(_) =>
-                replyTo ! offset
-            }
-
         }
         Behaviors.same
 

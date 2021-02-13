@@ -50,9 +50,10 @@ class EntrySpec
   private val entryAmount = BigDecimal(100)
   private val theTime = DateUtils.now()
 
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
+  override protected def afterEach(): Unit = {
+    super.afterEach()
     eventSourcedTestKit.clear()
+    ackProbe.expectNoMessage()
   }
 
   "A Entry" when {

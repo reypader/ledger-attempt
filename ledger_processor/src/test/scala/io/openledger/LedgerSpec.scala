@@ -124,12 +124,14 @@ class LedgerSpec
     }
   }
 
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
+  override protected def afterEach(): Unit = {
+    super.afterEach()
     entryATestKit.clear()
     entryBTestKit.clear()
     accountATestKit.clear()
     accountBTestKit.clear()
+    ackProbe.expectNoMessage()
+    resultProbe.expectNoMessage()
   }
 
   "Two Debit Accounts with A = 100/100/0, B = 100/100/0 balance" when {
