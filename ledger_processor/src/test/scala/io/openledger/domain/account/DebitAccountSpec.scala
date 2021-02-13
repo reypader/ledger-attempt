@@ -83,9 +83,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "accept DebitHold(uuid, 1) and have 1/0/1 balance" in {
+      "accept DebitAuthorize(uuid, 1) and have 1/0/1 balance" in {
         given()
-        val cmd = DebitHold(txnId, entryCode, 1)
+        val cmd = DebitAuthorize(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 0, 1, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.events shouldBe Seq(DebitAuthorized(txnId, entryCode, 1, 1, 1, theTime))
@@ -94,9 +94,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
       }
 
-      "reject Capture(uuid, 1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitCapture(uuid, 1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Post(txnId, entryCode, 1, 0, theTime)
+        val cmd = DebitCapture(txnId, entryCode, 1, 0, theTime)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -109,9 +109,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "reject Release(uuid, 1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitRelease(uuid, 1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Release(txnId, entryCode, 1)
+        val cmd = DebitRelease(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -176,9 +176,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "accept DebitHold(uuid, 1) and have 2/1/1 balance" in {
+      "accept DebitAuthorize(uuid, 1) and have 2/1/1 balance" in {
         given()
-        val cmd = DebitHold(txnId, entryCode, 1)
+        val cmd = DebitAuthorize(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 2, 1, 1, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.events shouldBe Seq(DebitAuthorized(txnId, entryCode, 1, 2, 1, theTime))
@@ -187,9 +187,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
       }
 
-      "reject Capture(uuid, 1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitCapture(uuid, 1,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Post(txnId, entryCode, 1, 0, theTime)
+        val cmd = DebitCapture(txnId, entryCode, 1, 0, theTime)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -202,9 +202,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "reject Release(uuid, 1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitRelease(uuid, 1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Release(txnId, entryCode, 1)
+        val cmd = DebitRelease(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -243,7 +243,7 @@ class DebitAccountSpec
 
     "at initially 1/0/1 balance" must {
       def given(): Unit = {
-        val cmd = DebitHold(txnId, entryCode, 1)
+        val cmd = DebitAuthorize(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 0, 1, theTime)) once
         val given2 = eventSourcedTestKit.runCommand(cmd)
       }
@@ -270,9 +270,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
       }
 
-      "accept DebitHold(uuid, 1) and have 2/0/2 balance" in {
+      "accept DebitAuthorize(uuid, 1) and have 2/0/2 balance" in {
         given()
-        val cmd = DebitHold(txnId, entryCode, 1)
+        val cmd = DebitAuthorize(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 2, 0, 2, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
         result.events shouldBe Seq(DebitAuthorized(txnId, entryCode, 1, 2, 2, theTime))
@@ -281,21 +281,21 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 2
       }
 
-      "accept Capture(uuid, 1,0) and have 1/1/0 balance" in {
+      "accept DebitCapture(uuid, 1,0) and have 1/1/0 balance" in {
         given()
         val yesterday = DateUtils.now().minus(Duration.ofDays(1))
-        val cmd = Post(txnId, entryCode, 1, 0, yesterday)
+        val cmd = DebitCapture(txnId, entryCode, 1, 0, yesterday)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(DebitPosted(txnId, entryCode, 1, 0, 1, 1, 0, yesterday, theTime))
+        result.events shouldBe Seq(DebitCaptured(txnId, entryCode, 1, 0, 1, 1, 0, yesterday, theTime))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "reject Capture(uuid, 1,1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitCapture(uuid, 1,1) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Post(txnId, entryCode, 1, 1, theTime)
+        val cmd = DebitCapture(txnId, entryCode, 1, 1, theTime)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -308,9 +308,9 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
       }
 
-      "reject Capture(uuid, 2,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitCapture(uuid, 2,0) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Post(txnId, entryCode, 2, 0, theTime)
+        val cmd = DebitCapture(txnId, entryCode, 2, 0, theTime)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -323,20 +323,20 @@ class DebitAccountSpec
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 1
       }
 
-      "accept Release(uuid, 1) and have 0/0/0 balance" in {
+      "accept DebitRelease(uuid, 1) and have 0/0/0 balance" in {
         given()
-        val cmd = Release(txnId, entryCode, 1)
+        val cmd = DebitRelease(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 0, 0, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(Released(txnId, entryCode, 1, 0, 0, theTime))
+        result.events shouldBe Seq(DebitReleased(txnId, entryCode, 1, 0, 0, theTime))
         result.stateOfType[DebitAccount].availableBalance shouldBe 0
         result.stateOfType[DebitAccount].currentBalance shouldBe 0
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "reject Release(uuid, 2) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
+      "reject DebitRelease(uuid, 2) with INSUFFICIENT_AUTHORIZED_BALANCE" in {
         given()
-        val cmd = Release(txnId, entryCode, 2)
+        val cmd = DebitRelease(txnId, entryCode, 2)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -353,24 +353,24 @@ class DebitAccountSpec
 
     "at initially 2/0/2 balance" must {
       def given(): Unit = {
-        val cmd = DebitHold(txnId, entryCode, 2)
+        val cmd = DebitAuthorize(txnId, entryCode, 2)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 2, 0, 2, theTime)) once
         val given2 = eventSourcedTestKit.runCommand(cmd)
       }
 
-      "accept Capture(uuid, 1,1) and have 1/1/0 balance" in {
+      "accept DebitCapture(uuid, 1,1) and have 1/1/0 balance" in {
         given()
         val yesterday = DateUtils.now().minus(Duration.ofDays(1))
-        val cmd = Post(txnId, entryCode, 1, 1, yesterday)
+        val cmd = DebitCapture(txnId, entryCode, 1, 1, yesterday)
         stubMessenger expects (txnId, AccountingSuccessful(cmd.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result = eventSourcedTestKit.runCommand(cmd)
-        result.events shouldBe Seq(DebitPosted(txnId, entryCode, 1, 1, 1, 1, 0, yesterday, theTime))
+        result.events shouldBe Seq(DebitCaptured(txnId, entryCode, 1, 1, 1, 1, 0, yesterday, theTime))
         result.stateOfType[DebitAccount].availableBalance shouldBe 1
         result.stateOfType[DebitAccount].currentBalance shouldBe 1
         result.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "accept Credit(uuid, 1), Capture(uuid, 2,0) and have 1/1/0 balance" in {
+      "accept Credit(uuid, 1), DebitCapture(uuid, 2,0) and have 1/1/0 balance" in {
         given()
         val cmd1 = Credit(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingSuccessful(cmd1.hashCode(), accountId, 1, -1, 2, theTime)) once
@@ -381,16 +381,16 @@ class DebitAccountSpec
         result1.stateOfType[DebitAccount].authorizedBalance shouldBe 2
 
         val yesterday = DateUtils.now().minus(Duration.ofDays(1))
-        val cmd2 = Post(txnId, entryCode, 2, 0, yesterday)
+        val cmd2 = DebitCapture(txnId, entryCode, 2, 0, yesterday)
         stubMessenger expects (txnId, AccountingSuccessful(cmd2.hashCode(), accountId, 1, 1, 0, theTime)) once
         val result2 = eventSourcedTestKit.runCommand(cmd2)
-        result2.events shouldBe Seq(DebitPosted(txnId, entryCode, 2, 0, 1, 1, 0, yesterday, theTime))
+        result2.events shouldBe Seq(DebitCaptured(txnId, entryCode, 2, 0, 1, 1, 0, yesterday, theTime))
         result2.stateOfType[DebitAccount].availableBalance shouldBe 1
         result2.stateOfType[DebitAccount].currentBalance shouldBe 1
         result2.stateOfType[DebitAccount].authorizedBalance shouldBe 0
       }
 
-      "accept CreditAdjust(uuid, 2), Capture(uuid, 1,1) and have -1/-1/0 balance with Overpaid" in {
+      "accept CreditAdjust(uuid, 2), DebitCapture(uuid, 1,1) and have -1/-1/0 balance with Overpaid" in {
         given()
         val cmd1 = CreditAdjust(txnId, entryCode, 2)
         stubMessenger expects (txnId, AccountingSuccessful(cmd1.hashCode(), accountId, 0, -2, 2, theTime)) once
@@ -401,11 +401,11 @@ class DebitAccountSpec
         result1.stateOfType[DebitAccount].authorizedBalance shouldBe 2
 
         val yesterday = DateUtils.now().minus(Duration.ofDays(1))
-        val cmd2 = Post(txnId, entryCode, 1, 1, yesterday)
+        val cmd2 = DebitCapture(txnId, entryCode, 1, 1, yesterday)
         stubMessenger expects (txnId, AccountingSuccessful(cmd2.hashCode(), accountId, -1, -1, 0, theTime)) once
         val result2 = eventSourcedTestKit.runCommand(cmd2)
         result2.events shouldBe Seq(
-          DebitPosted(txnId, entryCode, 1, 1, -1, -1, 0, yesterday, theTime),
+          DebitCaptured(txnId, entryCode, 1, 1, -1, -1, 0, yesterday, theTime),
           Overpaid(txnId, entryCode, theTime)
         )
         result2.stateOfType[DebitAccount].availableBalance shouldBe -1

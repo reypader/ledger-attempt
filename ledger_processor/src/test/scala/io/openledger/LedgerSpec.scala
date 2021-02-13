@@ -542,18 +542,18 @@ class LedgerSpec
       "stop for illegal states and wait for adjustments" in {
         entrySetup()
         // Illegal stuff
-        accountATestKit.runCommand(Post("SETUP-A", "SETUP-ENTRY", 10, 0, DateUtils.now()))
+        accountATestKit.runCommand(DebitCapture("SETUP-A", "SETUP-ENTRY", 10, 0, DateUtils.now()))
         val preStateA = accountATestKit.runCommand[AccountState](Get)
         preStateA.reply shouldBe CreditAccount(accountA, 0, 90, 90, Set.empty)
 
-        // Capture attempt stops
+        // DebitCapture attempt stops
         entryATestKit.runCommand(Capture(100, ackProbe.ref))
         ackProbe.expectMessageType[TxnAck]
         resultProbe.expectNoMessage(10.seconds)
 
         // Adjustments
         accountATestKit.runCommand(CreditAdjust("SOME-MANUAL", "MANUAL", 10))
-        accountATestKit.runCommand(DebitHold("SOME-MANUAL", "MANUAL", 10))
+        accountATestKit.runCommand(DebitAuthorize("SOME-MANUAL", "MANUAL", 10))
         val preStateA2 = accountATestKit.runCommand[AccountState](Get)
         preStateA2.reply shouldBe CreditAccount(accountA, 0, 100, 100, Set.empty)
 

@@ -134,7 +134,7 @@ class StreamConsumerSpec
 
         testProbe.expectMessageType[StubCommittable]
       }
-      "Forward to probe on Op-Capture" in {
+      "Forward to probe on Op-DebitCapture" in {
         stubEntryResolver expects "txn" returning entryProbe.ref once
 
         stubAccountResolver expects "d" returning accountProbeA.ref once
@@ -288,7 +288,7 @@ class StreamConsumerSpec
         testProbe.expectMessageType[StubCommittable](10.seconds)
       }
 
-      "Forward to probe on Op-Capture - Nack" in {
+      "Forward to probe on Op-DebitCapture - Nack" in {
         stubAccountResolver expects "d" returning accountProbeA.ref once
 
         stubAccountResolver expects "c" returning accountProbeB.ref once
@@ -310,7 +310,7 @@ class StreamConsumerSpec
         testProbe.expectMessageType[StubCommittable]
       }
 
-      "Forward to probe on Op-Capture - Timeout" in {
+      "Forward to probe on Op-DebitCapture - Timeout" in {
         stubEntryResolver expects "txn" returning entryProbe.ref once
 
         stubAccountResolver expects "d" returning accountProbeA.ref once

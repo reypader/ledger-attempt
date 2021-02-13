@@ -18,7 +18,7 @@ case class Crediting(
     amountAuthorized: BigDecimal,
     captureAmount: BigDecimal,
     debitedAccountResultingBalance: ResultingBalance,
-    debitHoldTimestamp: OffsetDateTime,
+    debitAuthorizeTimestamp: OffsetDateTime,
     reversalPending: Boolean
 ) extends PairedEntry {
   private val stateCommand = Account.Credit(entryId, entryCode, captureAmount)
@@ -27,7 +27,7 @@ case class Crediting(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {
     case CreditSucceeded(creditedAccountResultingBalance) =>
-      Posting(
+      Capturing(
         entryCode,
         entryId,
         accountToDebit,
@@ -36,7 +36,7 @@ case class Crediting(
         captureAmount,
         debitedAccountResultingBalance,
         creditedAccountResultingBalance,
-        debitHoldTimestamp,
+        debitAuthorizeTimestamp,
         reversalPending
       )
     case CreditFailed(code) =>

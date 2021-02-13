@@ -16,12 +16,12 @@ case class Authorizing(
     authOnly: Boolean,
     reversalPending: Boolean
 ) extends PairedEntry {
-  private val stateCommand = Account.DebitHold(entryId, entryCode, amountAuthorized)
+  private val stateCommand = Account.DebitAuthorize(entryId, entryCode, amountAuthorized)
 
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {
-    case DebitHoldSucceeded(debitedAccountResultingBalance, timestamp) =>
+    case DebitAuthorizeSucceeded(debitedAccountResultingBalance, timestamp) =>
       if (authOnly) {
         Pending(
           entryCode,
@@ -46,8 +46,8 @@ case class Authorizing(
           reversalPending
         )
       }
-    case DebitHoldFailed(code) => Failed(entryCode, entryId, code)
-    case ReversalRequested()   => copy(reversalPending = true)
+    case DebitAuthorizeFailed(code) => Failed(entryCode, entryId, code)
+    case ReversalRequested()        => copy(reversalPending = true)
   }
 
   override def handleCommand(command: Entry.EntryCommand)(implicit
@@ -57,10 +57,10 @@ case class Authorizing(
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(DebitHoldSucceeded(resultingBalance, timestamp)).thenRun(_.proceed())
+      Effect.persist(DebitAuthorizeSucceeded(resultingBalance, timestamp)).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(DebitHoldFailed(code.toString)).thenRun(_.proceed())
+      Effect.persist(DebitAuthorizeFailed(code.toString)).thenRun(_.proceed())
     case Reverse(replyTo) =>
       Effect
         .persist(ReversalRequested())
@@ -74,7 +74,7 @@ case class Authorizing(
       accountMessenger: AccountMessenger,
       resultMessenger: ResultMessenger
   ): Unit = {
-    context.log.info(s"Performing DebitHold on $accountToDebit")
+    context.log.info(s"Performing DebitAuthorize on $accountToDebit")
     accountMessenger(accountToDebit, stateCommand)
   }
 }

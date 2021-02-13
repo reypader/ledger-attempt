@@ -23,13 +23,13 @@ case class CreditAccount(
       copy(availableBalance = newAvailableBalance, currentBalance = newCurrentBalance)
     case DebitAuthorized(_, _, _, newAvailableBalance, newAuthorizedBalance, _) =>
       copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
-    case DebitPosted(_, _, _, _, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, _, _) =>
+    case DebitCaptured(_, _, _, _, newAvailableBalance, newCurrentBalance, newAuthorizedBalance, _, _) =>
       copy(
         availableBalance = newAvailableBalance,
         currentBalance = newCurrentBalance,
         authorizedBalance = newAuthorizedBalance
       )
-    case Released(_, _, _, newAvailableBalance, newAuthorizedBalance, _) =>
+    case DebitReleased(_, _, _, newAvailableBalance, newAuthorizedBalance, _) =>
       copy(availableBalance = newAvailableBalance, authorizedBalance = newAuthorizedBalance)
     case Overdrawn(_, _, _) => this
   }
@@ -140,9 +140,9 @@ case class CreditAccount(
           )
         )
 
-    case DebitHold(entryId, entryCode, amountToHold) =>
-      val newAvailableBalance = availableBalance - amountToHold
-      val newAuthorizedBalance = authorizedBalance + amountToHold
+    case DebitAuthorize(entryId, entryCode, amountToAuthorize) =>
+      val newAvailableBalance = availableBalance - amountToAuthorize
+      val newAuthorizedBalance = authorizedBalance + amountToAuthorize
       if (newAvailableBalance < 0) {
         Effect.none.thenRun(_ =>
           entryMessenger(
@@ -153,7 +153,7 @@ case class CreditAccount(
       } else {
         Effect
           .persist(
-            DebitAuthorized(entryId, entryCode, amountToHold, newAvailableBalance, newAuthorizedBalance, now())
+            DebitAuthorized(entryId, entryCode, amountToAuthorize, newAvailableBalance, newAuthorizedBalance, now())
           )
           .thenRun(_ =>
             entryMessenger(
@@ -170,7 +170,7 @@ case class CreditAccount(
           )
       }
 
-    case Post(entryId, entryCode, amountToCapture, amountToRelease, postingTimestamp) =>
+    case DebitCapture(entryId, entryCode, amountToCapture, amountToRelease, authorizationTimestamp) =>
       val newAuthorizedBalance = authorizedBalance - amountToCapture - amountToRelease
       val newCurrentBalance = currentBalance - amountToCapture
       val newAvailableBalance = availableBalance + amountToRelease
@@ -184,7 +184,7 @@ case class CreditAccount(
       } else {
         val events = if (newCurrentBalance < 0) {
           Seq(
-            DebitPosted(
+            DebitCaptured(
               entryId,
               entryCode,
               amountToCapture,
@@ -192,14 +192,14 @@ case class CreditAccount(
               newAvailableBalance,
               newCurrentBalance,
               newAuthorizedBalance,
-              postingTimestamp,
+              authorizationTimestamp,
               now()
             ),
             Overdrawn(entryId, entryCode, now())
           )
         } else {
           Seq(
-            DebitPosted(
+            DebitCaptured(
               entryId,
               entryCode,
               amountToCapture,
@@ -207,7 +207,7 @@ case class CreditAccount(
               newAvailableBalance,
               newCurrentBalance,
               newAuthorizedBalance,
-              postingTimestamp,
+              authorizationTimestamp,
               now()
             )
           )
@@ -229,7 +229,7 @@ case class CreditAccount(
           )
       }
 
-    case Release(entryId, entryCode, amountToRelease) =>
+    case DebitRelease(entryId, entryCode, amountToRelease) =>
       val newAuthorizedBalance = authorizedBalance - amountToRelease
       val newAvailableBalance = availableBalance + amountToRelease
       if (newAuthorizedBalance < 0) {
@@ -242,7 +242,7 @@ case class CreditAccount(
       } else {
         Effect
           .persist(
-            Released(entryId, entryCode, amountToRelease, newAvailableBalance, newAuthorizedBalance, now())
+            DebitReleased(entryId, entryCode, amountToRelease, newAvailableBalance, newAuthorizedBalance, now())
           )
           .thenRun(_ =>
             entryMessenger(

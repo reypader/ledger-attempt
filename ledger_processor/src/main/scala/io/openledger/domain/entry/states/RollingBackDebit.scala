@@ -65,6 +65,6 @@ case class RollingBackDebit(
     case Some(capturedAmount) =>
       Account.CreditAdjust(entryId, entryCode, capturedAmount)
     case None =>
-      Account.Release(entryId, entryCode, authorizedAmount)
+      Account.DebitRelease(entryId, entryCode, authorizedAmount)
   }
 }

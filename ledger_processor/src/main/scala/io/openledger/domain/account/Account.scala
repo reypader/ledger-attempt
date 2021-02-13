@@ -85,17 +85,19 @@ object Account {
   final case class CreditAdjust(entryId: String, entryCode: String, amountToCredit: BigDecimal)
       extends AccountingCommand
 
-  final case class DebitHold(entryId: String, entryCode: String, amountToHold: BigDecimal) extends AccountingCommand
+  final case class DebitAuthorize(entryId: String, entryCode: String, amountToAuthorize: BigDecimal)
+      extends AccountingCommand
 
-  final case class Post(
+  final case class DebitCapture(
       entryId: String,
       entryCode: String,
       amountToCapture: BigDecimal,
       amountToRelease: BigDecimal,
-      postingTimestamp: OffsetDateTime
+      authorizationTimestamp: OffsetDateTime
   ) extends AccountingCommand
 
-  final case class Release(entryId: String, entryCode: String, amountToRelease: BigDecimal) extends AccountingCommand
+  final case class DebitRelease(entryId: String, entryCode: String, amountToRelease: BigDecimal)
+      extends AccountingCommand
 
   final case class Get(replyTo: ActorRef[AccountState]) extends AccountCommand
 

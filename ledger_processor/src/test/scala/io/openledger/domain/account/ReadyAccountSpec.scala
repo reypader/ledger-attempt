@@ -119,8 +119,8 @@ class ReadyAccountSpec
         result.stateOfType[Ready].accountId shouldBe accountId
       }
 
-      "reject DebitHold" in {
-        val cmd = DebitHold(txnId, entryCode, 1)
+      "reject DebitAuthorize" in {
+        val cmd = DebitAuthorize(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -134,7 +134,7 @@ class ReadyAccountSpec
       }
 
       "reject DebitPost" in {
-        val cmd = Post(txnId, entryCode, 1, 1, DateUtils.now())
+        val cmd = DebitCapture(txnId, entryCode, 1, 1, DateUtils.now())
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,
@@ -147,8 +147,8 @@ class ReadyAccountSpec
         result.stateOfType[Ready].accountId shouldBe accountId
       }
 
-      "reject Release" in {
-        val cmd = Release(txnId, entryCode, 1)
+      "reject DebitRelease" in {
+        val cmd = DebitRelease(txnId, entryCode, 1)
         stubMessenger expects (txnId, AccountingFailed(
           cmd.hashCode(),
           accountId,

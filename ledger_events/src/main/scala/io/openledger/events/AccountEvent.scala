@@ -46,22 +46,22 @@ final case class DebitAuthorized(
     timestamp: OffsetDateTime
 ) extends AccountingEvent
 
-final case class DebitPosted(
+final case class DebitCaptured(
     entryId: String,
     entryCode: String,
     amount: BigDecimal,
-    amountReturned: BigDecimal,
+    amountReleased: BigDecimal,
     newAvailableBalance: BigDecimal,
     newCurrentBalance: BigDecimal,
     newAuthorizedBalance: BigDecimal,
-    postingTimestamp: OffsetDateTime,
+    authTimestamp: OffsetDateTime,
     timestamp: OffsetDateTime
 ) extends AccountingEvent
 
-final case class Released(
+final case class DebitReleased(
     entryId: String,
     entryCode: String,
-    amountReturned: BigDecimal,
+    amountReleased: BigDecimal,
     newAvailableBalance: BigDecimal,
     newAuthorizedBalance: BigDecimal,
     timestamp: OffsetDateTime

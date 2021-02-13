@@ -16,7 +16,7 @@ case class Pending(
     accountToCredit: String,
     amountAuthorized: BigDecimal,
     debitedAccountResultingBalance: ResultingBalance,
-    debitHoldTimestamp: OffsetDateTime,
+    debitAuthorizeTimestamp: OffsetDateTime,
     reversalPending: Boolean
 ) extends PairedEntry {
   override def handleEvent(
@@ -31,7 +31,7 @@ case class Pending(
         amountAuthorized,
         captureAmount,
         debitedAccountResultingBalance,
-        debitHoldTimestamp,
+        debitAuthorizeTimestamp,
         reversalPending
       )
     case ReversalRequested() =>
@@ -70,7 +70,7 @@ case class Pending(
       accountMessenger: AccountMessenger,
       resultMessenger: ResultMessenger
   ): Unit = {
-    context.log.info(s"Awaiting Capture on Pending")
+    context.log.info(s"Awaiting DebitCapture on Pending")
     resultMessenger(EntryPending(entryId, debitedAccountResultingBalance))
 
     if (reversalPending) {

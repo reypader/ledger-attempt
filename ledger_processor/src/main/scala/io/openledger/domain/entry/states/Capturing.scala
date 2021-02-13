@@ -10,7 +10,7 @@ import io.openledger.events._
 
 import java.time.OffsetDateTime
 
-case class Posting(
+case class Capturing(
     entryCode: String,
     entryId: String,
     accountToDebit: String,
@@ -19,29 +19,28 @@ case class Posting(
     captureAmount: BigDecimal,
     debitedAccountResultingBalance: ResultingBalance,
     creditedAccountResultingBalance: ResultingBalance,
-    debitHoldTimestamp: OffsetDateTime,
-    reversalPending: Boolean,
-    failedPosting: Boolean = false
+    debitAuthorizeTimestamp: OffsetDateTime,
+    reversalPending: Boolean
 ) extends PairedEntry {
   private val stateCommand =
-    Account.Post(entryId, entryCode, captureAmount, amountAuthorized - captureAmount, debitHoldTimestamp)
+    Account.DebitCapture(entryId, entryCode, captureAmount, amountAuthorized - captureAmount, debitAuthorizeTimestamp)
 
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {
-    case DebitPostSucceeded(debitPostedAccountResultingBalance) =>
+    case DebitCaptureSucceeded(debitCapturedAccountResultingBalance) =>
       Posted(
         entryCode,
         entryId,
         accountToDebit,
         accountToCredit,
         captureAmount,
-        debitPostedAccountResultingBalance,
+        debitCapturedAccountResultingBalance,
         creditedAccountResultingBalance,
         reversalPending
       )
-    case DebitPostFailed(_)  => ResumablePosting(this)
-    case ReversalRequested() => copy(reversalPending = true)
+    case DebitCaptureFailed(_) => ResumableCapturing(this)
+    case ReversalRequested()   => copy(reversalPending = true)
 
   }
 
@@ -52,12 +51,12 @@ case class Posting(
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(DebitPostSucceeded(resultingBalance)).thenRun(_.proceed())
+      Effect.persist(DebitCaptureSucceeded(resultingBalance)).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
       Effect
-        .persist(DebitPostFailed(code.toString))
-        .thenRun(_ => context.log.error(s"ALERT: Posting failed $code for $accountToDebit."))
+        .persist(DebitCaptureFailed(code.toString))
+        .thenRun(_ => context.log.error(s"ALERT: Capturing failed $code for $accountToDebit."))
     case Reverse(replyTo) =>
       Effect
         .persist(ReversalRequested())
@@ -71,7 +70,7 @@ case class Posting(
       accountMessenger: AccountMessenger,
       resultMessenger: ResultMessenger
   ): Unit = {
-    context.log.info(s"Performing Post on $accountToDebit")
+    context.log.info(s"Performing DebitCapture on $accountToDebit")
     accountMessenger(accountToDebit, stateCommand)
   }
 }

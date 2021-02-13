@@ -6,7 +6,7 @@ import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry.{AccountMessenger, Ack, ResultMessenger, Resume, Reverse}
 import io.openledger.events.{Resumed, ReversalRequested, EntryEvent}
 
-case class ResumablePosting(actualState: Posting) extends ResumableState(actualState) {
+case class ResumableCapturing(actualState: Capturing) extends ResumableState(actualState) {
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[Entry.EntryCommand]): PartialFunction[EntryEvent, EntryState] =
