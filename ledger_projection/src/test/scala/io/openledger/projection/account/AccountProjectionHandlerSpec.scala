@@ -6,7 +6,7 @@ import io.openledger.AccountingMode.{CREDIT, DEBIT}
 import io.openledger.events._
 import io.openledger.projection.account.AccountInfoRepository.AccountInfo
 import io.openledger.projection.account.AccountOverdraftRepository.{Overdraft, OverdraftType}
-import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement}
+import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement, MovementType}
 import io.openledger.projection.{PlainJdbcSession, UnnecessaryDatasourceStub}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.concurrent.ScalaFutures
@@ -121,7 +121,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("eid", "ec", 1, 1, 2, 3, now),
+            FullMovement("acc", "eid", "ec", MovementType.DEBIT, 1, 1, 2, 3, now, now),
             (mockConnection)
           )
           .once()
@@ -131,13 +131,13 @@ class AccountProjectionHandlerSpec
         underTest.process(jdbcSession, envelope(event))
 
       }
-      "persist positive for Authorized" in {
+      "persist positive for DebitAuthorized" in {
         given()
 
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("eid", "ec", 1, 2, now),
+            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_AUTHORIZE, 1, 2, now),
             (mockConnection)
           )
           .once()
@@ -146,33 +146,35 @@ class AccountProjectionHandlerSpec
 
         underTest.process(jdbcSession, envelope(event))
       }
-      "persist mixed sign for Posted" in {
+      "persist mixed sign for DebitCaptured" in {
         given()
+
+        val backThen = now.minus(1, ChronoUnit.DAYS)
 
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("eid", "ec", -5, 1, 2, 3, now),
+            FullMovement("acc", "eid", "ec", MovementType.DEBIT_CAPTURE, -5, 1, 2, 3, backThen, now),
             (mockConnection)
           )
           .once()
 
-        val event = DebitPosted("eid", "ec", 1, 5, 2, 3, 10, now.minus(1, ChronoUnit.DAYS), now)
+        val event = DebitCaptured("eid", "ec", 1, 5, 2, 3, 10, backThen, now)
 
         underTest.process(jdbcSession, envelope(event))
       }
-      "persist negative for Released" in {
+      "persist negative for DebitReleased" in {
         given()
 
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("eid", "ec", -8, 2, now),
+            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_RELEASE, -8, 2, now),
             (mockConnection)
           )
           .once()
 
-        val event = Released("eid", "ec", 8, 2, 10, now)
+        val event = DebitReleased("eid", "ec", 8, 2, 10, now)
 
         underTest.process(jdbcSession, envelope(event))
       }
@@ -182,7 +184,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("eid", "ec", -1, -1, 2, 3, now),
+            FullMovement("acc", "eid", "ec", MovementType.CREDIT, -1, -1, 2, 3, now, now),
             (mockConnection)
           )
           .once()
@@ -209,7 +211,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("eid", "ec", -1, -1, 2, 3, now),
+            FullMovement("acc", "eid", "ec", MovementType.DEBIT, -1, -1, 2, 3, now, now),
             (mockConnection)
           )
           .once()
@@ -219,13 +221,13 @@ class AccountProjectionHandlerSpec
         underTest.process(jdbcSession, envelope(event))
 
       }
-      "persist positive for Authorized" in {
+      "persist positive for DebitAuthorized" in {
         given()
 
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("eid", "ec", -1, 2, now),
+            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_AUTHORIZE, -1, 2, now),
             (mockConnection)
           )
           .once()
@@ -234,33 +236,35 @@ class AccountProjectionHandlerSpec
 
         underTest.process(jdbcSession, envelope(event))
       }
-      "persist mixed sign for Posted" in {
+      "persist mixed sign for DebitCaptured" in {
         given()
+
+        val backThen = now.minus(1, ChronoUnit.DAYS)
 
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("eid", "ec", 5, -1, 2, 3, now),
+            FullMovement("acc", "eid", "ec", MovementType.DEBIT_CAPTURE, 5, -1, 2, 3, backThen, now),
             (mockConnection)
           )
           .once()
 
-        val event = DebitPosted("eid", "ec", 1, 5, 2, 3, 10, now.minus(1, ChronoUnit.DAYS), now)
+        val event = DebitCaptured("eid", "ec", 1, 5, 2, 3, 10, backThen, now)
 
         underTest.process(jdbcSession, envelope(event))
       }
-      "persist negative for Released" in {
+      "persist negative for DebitReleased" in {
         given()
 
         (mockStatementRepo
           .save(_: AvailableMovement)(_: Connection))
           .expects(
-            AvailableMovement("eid", "ec", 8, 2, now),
+            AvailableMovement("acc", "eid", "ec", MovementType.DEBIT_RELEASE, 8, 2, now),
             (mockConnection)
           )
           .once()
 
-        val event = Released("eid", "ec", 8, 2, 10, now)
+        val event = DebitReleased("eid", "ec", 8, 2, 10, now)
 
         underTest.process(jdbcSession, envelope(event))
       }
@@ -270,7 +274,7 @@ class AccountProjectionHandlerSpec
         (mockStatementRepo
           .save(_: FullMovement)(_: Connection))
           .expects(
-            FullMovement("eid", "ec", 1, 1, 2, 3, now),
+            FullMovement("acc", "eid", "ec", MovementType.CREDIT, 1, 1, 2, 3, now, now),
             (mockConnection)
           )
           .once()

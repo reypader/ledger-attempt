@@ -10,7 +10,7 @@ import io.openledger.projection.PlainJdbcSession
 import io.openledger.projection.account.AccountInfoRepository.AccountInfo
 import io.openledger.projection.account.AccountOverdraftRepository.Overdraft
 import io.openledger.projection.account.AccountOverdraftRepository.OverdraftType.{OVERDRAWN, OVERPAID}
-import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement}
+import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, FullMovement, MovementType}
 
 object AccountProjectionHandler {
   def apply(
@@ -68,12 +68,15 @@ class AccountProjectionHandler(
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
             FullMovement(
+              accountId,
               entryId,
               entryCode,
+              MovementType.DEBIT,
               sign(info.mode, DEBIT) * amount,
               sign(info.mode, DEBIT) * amount,
               newAvailableBalance,
               newCurrentBalance,
+              timestamp,
               timestamp
             )
           )
@@ -81,21 +84,32 @@ class AccountProjectionHandler(
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
             FullMovement(
+              accountId,
               entryId,
               entryCode,
+              MovementType.CREDIT,
               sign(info.mode, CREDIT) * amount,
               sign(info.mode, CREDIT) * amount,
               newAvailableBalance,
               newCurrentBalance,
+              timestamp,
               timestamp
             )
           )
         case DebitAuthorized(entryId, entryCode, amount, newAvailableBalance, _, timestamp) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
-            AvailableMovement(entryId, entryCode, sign(info.mode, DEBIT) * amount, newAvailableBalance, timestamp)
+            AvailableMovement(
+              accountId,
+              entryId,
+              entryCode,
+              MovementType.DEBIT_AUTHORIZE,
+              sign(info.mode, DEBIT) * amount,
+              newAvailableBalance,
+              timestamp
+            )
           )
-        case DebitPosted(
+        case DebitCaptured(
               entryId,
               entryCode,
               amount,
@@ -103,27 +117,32 @@ class AccountProjectionHandler(
               newAvailableBalance,
               newCurrentBalance,
               _,
-              _,
+              authTimestamp,
               timestamp
             ) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
             FullMovement(
+              accountId,
               entryId,
               entryCode,
+              MovementType.DEBIT_CAPTURE,
               sign(info.mode, CREDIT) * amountReturned,
               sign(info.mode, DEBIT) * amount,
               newAvailableBalance,
               newCurrentBalance,
+              authTimestamp,
               timestamp
             )
           )
-        case Released(entryId, entryCode, amountReturned, newAvailableBalance, _, timestamp) =>
+        case DebitReleased(entryId, entryCode, amountReturned, newAvailableBalance, _, timestamp) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
             AvailableMovement(
+              accountId,
               entryId,
               entryCode,
+              MovementType.DEBIT_RELEASE,
               sign(info.mode, CREDIT) * amountReturned,
               newAvailableBalance,
               timestamp
