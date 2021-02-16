@@ -3,6 +3,7 @@ package io.openledger.domain.entry.states
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
 import io.openledger.AccountingMode.{AccountMode, CREDIT, DEBIT}
+import io.openledger.DateUtils
 import io.openledger.domain.account.Account
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
@@ -28,16 +29,16 @@ case class Adjusting(entryCode: String, entryId: String, accountToAdjust: String
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp)
         if accountId == accountToAdjust && originalCommandHash == stateCommand.hashCode() && mode == DEBIT =>
-      Effect.persist(DebitAdjustmentDone(resultingBalance)).thenRun(_.proceed())
+      Effect.persist(Seq(DebitAdjustmentDone(resultingBalance), Done(DateUtils.now()))).thenRun(_.proceed())
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp)
         if accountId == accountToAdjust && originalCommandHash == stateCommand.hashCode() && mode == CREDIT =>
-      Effect.persist(CreditAdjustmentDone(resultingBalance)).thenRun(_.proceed())
+      Effect.persist(Seq(CreditAdjustmentDone(resultingBalance), Done(DateUtils.now()))).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToAdjust && originalCommandHash == stateCommand.hashCode() && mode == DEBIT =>
-      Effect.persist(DebitAdjustmentFailed(code.toString)).thenRun(_.proceed())
+      Effect.persist(Seq(DebitAdjustmentFailed(code.toString), Done(DateUtils.now()))).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToAdjust && originalCommandHash == stateCommand.hashCode() && mode == CREDIT =>
-      Effect.persist(CreditAdjustmentFailed(code.toString)).thenRun(_.proceed())
+      Effect.persist(Seq(CreditAdjustmentFailed(code.toString), Done(DateUtils.now()))).thenRun(_.proceed())
   }
 
   private def stateCommand = mode match {

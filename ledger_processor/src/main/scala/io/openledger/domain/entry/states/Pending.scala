@@ -5,7 +5,7 @@ import akka.persistence.typed.scaladsl.Effect
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
 import io.openledger.events._
-import io.openledger.{LedgerError, ResultingBalance}
+import io.openledger.{DateUtils, LedgerError, ResultingBalance}
 
 import java.time.OffsetDateTime
 
@@ -34,8 +34,9 @@ case class Pending(
         debitAuthorizeTimestamp,
         reversalPending
       )
-    case ReversalRequested() =>
+    case ReversalRequested(_) =>
       RollingBackDebit(entryCode, entryId, accountToDebit, accountToCredit, amountAuthorized, None, None, None)
+    case Suspended(_) => this
   }
 
   override def handleCommand(command: Entry.EntryCommand)(implicit
@@ -58,7 +59,7 @@ case class Pending(
         }
     case Reverse(replyTo) =>
       Effect
-        .persist(ReversalRequested())
+        .persist(ReversalRequested(DateUtils.now()))
         .thenRun { next: EntryState =>
           next.proceed()
           replyTo ! Ack
@@ -72,10 +73,5 @@ case class Pending(
   ): Unit = {
     context.log.info(s"Awaiting DebitCapture on Pending")
     resultMessenger(EntryPending(entryId, debitedAccountResultingBalance))
-
-    if (reversalPending) {
-      context.log.info(s"Reversal marked on Pending state. Triggering self-reversal")
-      context.self ! Reverse(context.system.ignoreRef)
-    }
   }
 }

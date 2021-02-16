@@ -17,7 +17,8 @@ final case class Started(
     accountToDebit: String,
     accountToCredit: String,
     amount: BigDecimal,
-    authOnly: Boolean
+    authOnly: Boolean,
+    timestamp: OffsetDateTime
 ) extends EntryEvent
 
 final case class AdjustRequested(entryCode: String, accountToAdjust: String, amount: BigDecimal, mode: AccountMode)
@@ -38,7 +39,7 @@ final case class CreditAdjustmentDone(debitedAccountResultingBalance: ResultingB
 
 final case class DebitAdjustmentDone(creditedAccountResultingBalance: ResultingBalance) extends EntryEvent
 
-final case class ReversalRequested() extends EntryEvent
+final case class ReversalRequested(timestamp: OffsetDateTime) extends EntryEvent
 
 final case class CaptureRequested(captureAmount: BigDecimal) extends EntryEvent
 
@@ -49,3 +50,5 @@ final case class CreditAdjustmentFailed(code: String) extends EntryEvent
 final case class DebitAdjustmentFailed(code: String) extends EntryEvent
 
 final case class Resumed() extends EntryEvent
+final case class Suspended(timestamp: OffsetDateTime) extends EntryEvent
+final case class Done(timestamp: OffsetDateTime) extends EntryEvent

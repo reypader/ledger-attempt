@@ -2,7 +2,7 @@ package io.openledger.domain.entry.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.ResultingBalance
+import io.openledger.{DateUtils, ResultingBalance}
 import io.openledger.domain.account.Account
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
@@ -44,7 +44,7 @@ case class RollingBackDebit(
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, _)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(CreditAdjustmentDone(resultingBalance)).thenRun(_.proceed())
+      Effect.persist(Seq(CreditAdjustmentDone(resultingBalance), Done(DateUtils.now()))).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
       Effect

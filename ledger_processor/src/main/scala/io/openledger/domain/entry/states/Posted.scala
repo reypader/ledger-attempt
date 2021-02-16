@@ -2,7 +2,7 @@ package io.openledger.domain.entry.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.ResultingBalance
+import io.openledger.{DateUtils, ResultingBalance}
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
 import io.openledger.events._
@@ -14,13 +14,14 @@ case class Posted(
     accountToCredit: String,
     amountCaptured: BigDecimal,
     debitedAccountResultingBalance: ResultingBalance,
-    creditedAccountResultingBalance: ResultingBalance,
-    reversalPending: Boolean
+    creditedAccountResultingBalance: ResultingBalance
 ) extends PairedEntry {
   override def handleEvent(event: EntryEvent)(implicit
       context: ActorContext[EntryCommand]
-  ): PartialFunction[EntryEvent, EntryState] = { case ReversalRequested() =>
-    RollingBackCredit(entryCode, entryId, accountToDebit, accountToCredit, amountCaptured, Some(amountCaptured), None)
+  ): PartialFunction[EntryEvent, EntryState] = {
+    case ReversalRequested(_) =>
+      RollingBackCredit(entryCode, entryId, accountToDebit, accountToCredit, amountCaptured, Some(amountCaptured), None)
+    case Done(_) => this
   }
 
   override def handleCommand(command: Entry.EntryCommand)(implicit
@@ -29,7 +30,7 @@ case class Posted(
       resultMessenger: ResultMessenger
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = { case Reverse(replyTo) =>
     Effect
-      .persist(ReversalRequested())
+      .persist(ReversalRequested(DateUtils.now()))
       .thenRun { next: EntryState =>
         next.proceed()
         replyTo ! Ack
@@ -43,10 +44,5 @@ case class Posted(
   ): Unit = {
     context.log.info(s"Announcing result on Posted")
     resultMessenger(EntrySuccessful(entryId, debitedAccountResultingBalance, creditedAccountResultingBalance))
-
-    if (reversalPending) {
-      context.log.info(s"Reversal marked on Posted state. Triggering self-reversal")
-      context.self ! Reverse(context.system.ignoreRef)
-    }
   }
 }

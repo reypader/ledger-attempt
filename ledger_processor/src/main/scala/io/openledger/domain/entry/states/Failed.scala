@@ -5,12 +5,12 @@ import akka.persistence.typed.scaladsl.Effect
 import io.openledger.LedgerError
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
-import io.openledger.events.EntryEvent
+import io.openledger.events.{Done, EntryEvent}
 
 case class Failed(entryCode: String, entryId: String, code: String) extends EntryState {
   override def handleEvent(event: EntryEvent)(implicit
       context: ActorContext[EntryCommand]
-  ): PartialFunction[EntryEvent, EntryState] = PartialFunction.empty
+  ): PartialFunction[EntryEvent, EntryState] = { case Done(_) => this }
 
   override def handleCommand(command: Entry.EntryCommand)(implicit
       context: ActorContext[EntryCommand],

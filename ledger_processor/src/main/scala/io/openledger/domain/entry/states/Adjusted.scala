@@ -18,7 +18,7 @@ case class Adjusted(
 ) extends EntryState {
   override def handleEvent(event: EntryEvent)(implicit
       context: ActorContext[EntryCommand]
-  ): PartialFunction[EntryEvent, EntryState] = PartialFunction.empty
+  ): PartialFunction[EntryEvent, EntryState] = { case Done(_) => this }
 
   override def handleCommand(command: Entry.EntryCommand)(implicit
       context: ActorContext[EntryCommand],

@@ -2,7 +2,7 @@ package io.openledger.domain.entry.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
-import io.openledger.ResultingBalance
+import io.openledger.{DateUtils, ResultingBalance}
 import io.openledger.domain.account.Account
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
@@ -36,11 +36,10 @@ case class Capturing(
         accountToCredit,
         captureAmount,
         debitCapturedAccountResultingBalance,
-        creditedAccountResultingBalance,
-        reversalPending
+        creditedAccountResultingBalance
       )
     case DebitCaptureFailed(_) => ResumableCapturing(this)
-    case ReversalRequested()   => copy(reversalPending = true)
+    case ReversalRequested(_)  => copy(reversalPending = true)
 
   }
 
@@ -51,7 +50,12 @@ case class Capturing(
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(DebitCaptureSucceeded(resultingBalance)).thenRun(_.proceed())
+      val events = if (reversalPending) {
+        Seq(DebitCaptureSucceeded(resultingBalance), ReversalRequested(DateUtils.now()))
+      } else {
+        Seq(DebitCaptureSucceeded(resultingBalance), Done(DateUtils.now()))
+      }
+      Effect.persist(events).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
       Effect
@@ -59,7 +63,7 @@ case class Capturing(
         .thenRun(_ => context.log.error(s"ALERT: Capturing failed $code for $accountToDebit."))
     case Reverse(replyTo) =>
       Effect
-        .persist(ReversalRequested())
+        .persist(ReversalRequested(DateUtils.now()))
         .thenRun { next: EntryState =>
           replyTo ! Ack
         }

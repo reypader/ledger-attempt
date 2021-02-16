@@ -2,6 +2,7 @@ package io.openledger.domain.entry.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
+import io.openledger.DateUtils
 import io.openledger.domain.account.Account
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
@@ -47,7 +48,7 @@ case class Authorizing(
         )
       }
     case DebitAuthorizeFailed(code) => Failed(entryCode, entryId, code)
-    case ReversalRequested()        => copy(reversalPending = true)
+    case ReversalRequested(_)       => copy(reversalPending = true)
   }
 
   override def handleCommand(command: Entry.EntryCommand)(implicit
@@ -57,13 +58,22 @@ case class Authorizing(
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case AcceptAccounting(originalCommandHash, accountId, resultingBalance, timestamp)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(DebitAuthorizeSucceeded(resultingBalance, timestamp)).thenRun(_.proceed())
+      val events = if (authOnly) {
+        if (reversalPending) {
+          Seq(DebitAuthorizeSucceeded(resultingBalance, timestamp), ReversalRequested(DateUtils.now()))
+        } else {
+          Seq(DebitAuthorizeSucceeded(resultingBalance, timestamp), Suspended(DateUtils.now()))
+        }
+      } else {
+        Seq(DebitAuthorizeSucceeded(resultingBalance, timestamp))
+      }
+      Effect.persist(events).thenRun(_.proceed())
     case RejectAccounting(originalCommandHash, accountId, code)
         if accountId == accountToDebit && originalCommandHash == stateCommand.hashCode() =>
-      Effect.persist(DebitAuthorizeFailed(code.toString)).thenRun(_.proceed())
+      Effect.persist(DebitAuthorizeFailed(code.toString), Done(DateUtils.now())).thenRun(_.proceed())
     case Reverse(replyTo) =>
       Effect
-        .persist(ReversalRequested())
+        .persist(ReversalRequested(DateUtils.now()))
         .thenRun { next: EntryState =>
           replyTo ! Ack
         }

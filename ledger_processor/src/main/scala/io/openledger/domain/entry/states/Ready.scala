@@ -2,6 +2,7 @@ package io.openledger.domain.entry.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
+import io.openledger.DateUtils
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry._
 import io.openledger.events._
@@ -10,7 +11,7 @@ case class Ready(entryId: String) extends EntryState {
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {
-    case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly) =>
+    case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly, _) =>
       Authorizing(entryCode, entryId, accountToDebit, accountToCredit, amount, authOnly, reversalPending = false)
     case AdjustRequested(entryCode, accountToAdjust, amount, mode) =>
       Adjusting(entryCode, entryId, accountToAdjust, amount, mode)
@@ -23,7 +24,7 @@ case class Ready(entryId: String) extends EntryState {
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case Begin(entryCode, accountToDebit, accountToCredit, amount, replyTo, authOnly) =>
       Effect
-        .persist(Started(entryCode, accountToDebit, accountToCredit, amount, authOnly))
+        .persist(Started(entryCode, accountToDebit, accountToCredit, amount, authOnly, DateUtils.now()))
         .thenRun { next: EntryState =>
           next.proceed()
           replyTo ! Ack

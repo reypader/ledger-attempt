@@ -2,15 +2,16 @@ package io.openledger.domain.entry.states
 
 import akka.actor.typed.scaladsl.ActorContext
 import akka.persistence.typed.scaladsl.Effect
+import io.openledger.DateUtils
 import io.openledger.domain.entry.Entry
 import io.openledger.domain.entry.Entry.{AccountMessenger, Ack, ResultMessenger, Resume, Reverse}
-import io.openledger.events.{Resumed, ReversalRequested, EntryEvent}
+import io.openledger.events.{EntryEvent, Resumed, ReversalRequested}
 
 case class ResumableCapturing(actualState: Capturing) extends ResumableState(actualState) {
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[Entry.EntryCommand]): PartialFunction[EntryEvent, EntryState] =
-    super.handleEvent(event).orElse { case ReversalRequested() =>
+    super.handleEvent(event).orElse { case ReversalRequested(_) =>
       copy(actualState = actualState.copy(reversalPending = true))
     }
   override def handleCommand(command: Entry.EntryCommand)(implicit
@@ -20,7 +21,7 @@ case class ResumableCapturing(actualState: Capturing) extends ResumableState(act
   ): PartialFunction[Entry.EntryCommand, Effect[EntryEvent, EntryState]] =
     super.handleCommand(command).orElse { case Reverse(replyTo) =>
       Effect
-        .persist(ReversalRequested())
+        .persist(ReversalRequested(DateUtils.now()))
         .thenRun { next: EntryState =>
           replyTo ! Ack
         }
