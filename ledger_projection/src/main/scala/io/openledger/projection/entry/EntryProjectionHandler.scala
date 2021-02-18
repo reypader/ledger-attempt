@@ -22,29 +22,53 @@ class EntryProjectionHandler(
   private def id(envelope: EventEnvelope[EntryEvent]): String =
     envelope.persistenceId.split(separator)(1)
 
-  private def sign(a: AccountMode, b: AccountMode): BigDecimal = if (a == b) 1.0 else -1.0
-
   override def process(session: PlainJdbcSession, envelope: EventEnvelope[EntryEvent]): Unit =
     session.withConnection { implicit conn =>
-      val accountId = id(envelope)
+      val entryId = id(envelope)
       envelope.event match {
         case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly, timestamp) =>
-        case AdjustRequested(entryCode, accountToAdjust, amount, mode)                        =>
-        case DebitAuthorizeSucceeded(debitedAccountResultingBalance, timestamp)               =>
-        case DebitAuthorizeFailed(code)                                                       =>
-        case DebitCaptureSucceeded(debitedAccountResultingBalance)                            =>
-        case CreditSucceeded(creditedAccountResultingBalance)                                 =>
-        case CreditFailed(code)                                                               =>
-        case CreditAdjustmentDone(debitedAccountResultingBalance)                             =>
-        case DebitAdjustmentDone(creditedAccountResultingBalance)                             =>
-        case CaptureRequested(captureAmount)                                                  =>
-        case DebitCaptureFailed(code)                                                         =>
-        case CreditAdjustmentFailed(code)                                                     =>
-        case DebitAdjustmentFailed(code)                                                      =>
-        case Resumed()                                                                        =>
-        case ReversalRequested(timestamp)                                                     =>
-        case Suspended(timestamp)                                                             =>
-        case Done(timestamp)                                                                  =>
+        //insert into floating simple/auth-only
+        //insert into stats
+        case CaptureRequested(captureAmount) =>
+        //insert into floating capture
+        //insert into stats
+        case ReversalRequested(timestamp) =>
+        //insert/update floating reversal in case of premature reversal
+        //insert into stats
+
+        case AdjustRequested(entryCode, accountToAdjust, amount, mode) =>
+        //insert into floating adjust
+
+        case DebitAuthorizeSucceeded(debitedAccountResultingBalance, timestamp) =>
+        //insert into stats uncaptured
+
+        case DebitCaptureSucceeded(debitedAccountResultingBalance) =>
+        //remove from stats uncaptured
+
+        case CreditSucceeded(creditedAccountResultingBalance)     =>
+        case CreditAdjustmentDone(debitedAccountResultingBalance) =>
+        case DebitAdjustmentDone(creditedAccountResultingBalance) =>
+
+        case DebitAuthorizeFailed(code) =>
+        //insert into stats
+        case CreditFailed(code) =>
+        //insert into stats
+
+        case DebitCaptureFailed(code) =>
+        //insert into alerts
+        case CreditAdjustmentFailed(code) =>
+        //insert into alerts
+        case DebitAdjustmentFailed(code) =>
+        //insert into alerts
+        case Resumed() =>
+        //remove from alerts
+
+        case Suspended(timestamp) =>
+        //insert computed latencies
+        //remove floating auth-only
+        case Done(timestamp) =>
+        //insert computed latencies
+        //remove floating capture/simple/reversal/adjust
       }
 
     }
