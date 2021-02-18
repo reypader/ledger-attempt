@@ -1,34 +1,72 @@
 package io.openledger.simulator.sequences
 
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
+import akka.stream.scaladsl.SourceQueue
 import io.openledger.kafka_operations.EntryRequest.Operation
 import io.openledger.kafka_operations._
+import io.openledger.simulator.Monitor.{Done, MonitorOperation}
 
+import java.time.Instant
 import java.util.UUID
+import scala.util.Random
 
-case class TransferRoundTrip(participants: Seq[String]) extends SequenceGenerator {
+case class TransferRoundTrip(
+    participants: Seq[String],
+    queue: SourceQueue[((String, ActorRef[EntryResult]), EntryRequest)],
+    iterations: Int
+) extends SequenceGenerator {
+  def pairs: Seq[(String, String)] = createPairs(Random.shuffle(participants))
 
-  private val pairs = {
-
-    createPairs(participants).flatMap(pair => {
-      val txnId = UUID.randomUUID().toString
-      Seq(
-        EntryRequest(
-          Operation.Simple(
-            Simple(
-              entryCode = "TRANSFER",
-              entryId = txnId,
-              accountToDebit = pair._1,
-              accountToCredit = pair._2,
-              amount = 1
+  override def generate(monitor: ActorRef[MonitorOperation]): Seq[Behavior[EntryResult]] = {
+    pairs
+      .map(pair => {
+        val txnId = UUID.randomUUID().toString
+        simpleBehavior(
+          txnId,
+          Seq(
+            EntryRequest(
+              Operation.Simple(
+                Simple(
+                  entryCode = "AUTH_CAP",
+                  entryId = txnId,
+                  accountToDebit = pair._1,
+                  accountToCredit = pair._2,
+                  amount = 3
+                )
+              )
             )
-          )
+          ),
+          queue,
+          iterations,
+          1,
+          monitor
         )
-      )
-    })
+      })
   }
 
-  override def generate(): Seq[EntryRequest] = pairs
-  override def count(): Int = pairs.size
+  def simpleBehavior(
+      entryId: String,
+      sequence: Seq[EntryRequest],
+      queue: SourceQueue[((String, ActorRef[EntryResult]), EntryRequest)],
+      maxIteration: Int,
+      currentIteration: Int = 0,
+      monitor: ActorRef[MonitorOperation]
+  ): Behavior[EntryResult] = Behaviors.setup { context =>
+    queue.offer(((entryId, context.self), sequence(0)))
+    val mark = Instant.now().toEpochMilli
+    Behaviors.receiveMessage {
+      case EntryResult(_, status, _, _, _, _) if status == "SUCCESS" && currentIteration < maxIteration =>
+        monitor ! Done("SIMPLE", Instant.now().toEpochMilli - mark)
+        simpleBehavior(UUID.randomUUID().toString, sequence, queue, maxIteration, currentIteration + 1, monitor)
+      case EntryResult(_, status, _, _, _, _) if status == "SUCCESS" && currentIteration >= maxIteration =>
+        monitor ! Done("SIMPLE", Instant.now().toEpochMilli - mark)
+        Behaviors.stopped
+      case EntryResult(entryId, status, code, _, _, _) =>
+        context.log.error(s"$entryId encountered problem : $status, $code")
+        Behaviors.stopped
+    }
+  }
 
-  override def toString: String = s"${pairs.size} transfers rotated among ${participants.size} accounts"
+  override def toString: String = s"$iterations iterations of (simple) between ${pairs.size} pairs"
 }

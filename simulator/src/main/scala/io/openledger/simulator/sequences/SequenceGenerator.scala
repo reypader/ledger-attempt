@@ -1,7 +1,10 @@
 package io.openledger.simulator.sequences
 
+import akka.actor.typed.{ActorRef, Behavior}
 import io.openledger.kafka_operations.EntryRequest.Operation
-import io.openledger.kafka_operations.{Reverse, EntryRequest}
+import io.openledger.kafka_operations.EntryRequest.Operation
+import io.openledger.kafka_operations._
+import io.openledger.simulator.Monitor.MonitorOperation
 import org.slf4j.LoggerFactory
 
 trait SequenceGenerator {
@@ -15,35 +18,6 @@ trait SequenceGenerator {
     pairs :+ (participants.last, participants.head)
   }
 
-  def reverse(entries: Seq[EntryRequest]): Seq[EntryRequest] = {
-    val grouped = entries
-      .flatMap(t =>
-        Seq(
-          t, {
-            val txnId = t.operation match {
-              case Operation.Simple(value)    => value.entryId
-              case Operation.Authorize(value) => value.entryId
-              case Operation.Capture(value)   => value.entryId
-              case _                          => throw new IllegalArgumentException()
-            }
-            EntryRequest(
-              Operation.Reverse(
-                Reverse(txnId)
-              )
-            )
-          }
-        )
-      )
-      .groupBy(r =>
-        r.operation match {
-          case Operation.Reverse(_) => "REVERSE"
-          case _                    => "NON"
-        }
-      )
-    grouped("NON") ++ grouped("REVERSE")
-  }
+  def generate(monitor: ActorRef[MonitorOperation]): Seq[Behavior[EntryResult]]
 
-  def generate(): Seq[EntryRequest]
-
-  def count(): Int
 }

@@ -1,18 +1,35 @@
 package io.openledger.simulator
 
+import akka.Done
+import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Scheduler, SpawnProtocol}
+import akka.actor.typed.{ActorRef, ActorSystem, Props, Scheduler, SpawnProtocol}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.{Get, Post}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.kafka.scaladsl.{Consumer, Producer}
 import akka.kafka.{ConsumerSettings, ProducerMessage, ProducerSettings, Subscriptions}
-import akka.stream.scaladsl.{Keep, Merge, Sink, Source}
+import akka.stream.{BoundedSourceQueue, OverflowStrategy}
+import akka.stream.scaladsl.{Keep, Merge, Sink, Source, SourceQueue}
 import io.openledger.AccountingMode
+import io.openledger.Application.{
+  accountResolver,
+  executionContext,
+  resultMessenger,
+  scheduler,
+  sharding,
+  streamConsumerSettings,
+  system
+}
 import io.openledger.api.http.Operations.{AccountResponse, AdjustRequest, OpenAccountRequest}
 import io.openledger.api.http.{JsonSupport, Operations}
+import io.openledger.api.kafka.StreamConsumer
+import io.openledger.api.kafka.StreamConsumer.StreamOp
+import io.openledger.domain.entry.Entry.EntryTypeKey
 import io.openledger.kafka_operations.EntryRequest.Operation
-import io.openledger.kafka_operations.{Capture, EntryRequest, EntryResult}
+import io.openledger.kafka_operations.{Capture, EntryRequest, EntryResult, Reverse}
+import io.openledger.simulator.Application.send
+import io.openledger.simulator.Monitor.{MonitorOperation, SpawnCases}
 import io.openledger.simulator.sequences._
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -28,8 +45,9 @@ import spray.json.{enrichAny, _}
 import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future, Promise}
 import scala.util.Random
 
 object Application extends App with JsonSupport {
@@ -40,7 +58,6 @@ object Application extends App with JsonSupport {
   val iterations = sys.env.getOrElse("ITERATIONS", "100").toInt
   val startingBalances = 1000000
   val logger = LoggerFactory.getLogger(this.getClass)
-
   implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(
     Behaviors.setup[SpawnProtocol.Command] { _ =>
       SpawnProtocol()
@@ -49,9 +66,24 @@ object Application extends App with JsonSupport {
   )
   implicit val scheduler: Scheduler = system.scheduler
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  val producerSettings: ProducerSettings[String, Array[Byte]] = ProducerSettings(
+    config = system.settings.config.getConfig("akka.kafka.producer"),
+    keySerializer = new StringSerializer,
+    valueSerializer = new ByteArraySerializer
+  ).withBootstrapServers(kafkaBootstraps)
+  val consumerSettings: ConsumerSettings[String, Array[Byte]] = ConsumerSettings(
+    config = system.settings.config.getConfig("akka.kafka.consumer"),
+    keyDeserializer = new StringDeserializer,
+    valueDeserializer = new ByteArrayDeserializer
+  ).withBootstrapServers(kafkaBootstraps)
+    .withGroupId("simulator")
+    .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
+    .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+
   val http = Http()
 
-  val accountUrl = s"http://${ledgerHost}/accounts/"
+  val accountUrl = s"http://$ledgerHost/accounts/"
 
   var openRequests = Seq[(String, OpenAccountRequest, AdjustRequest)]()
   var accounts = Seq[String]()
@@ -88,134 +120,97 @@ object Application extends App with JsonSupport {
       }
     )
 
-  logger.info(s"Preparing requests.")
-  logger.info(s"${iterations} iterations of ${TransferRoundTrip(Random.shuffle(accounts)).toString}")
-  val transfer =
-    Source(1 to iterations).map(_ => TransferRoundTrip(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  logger.info(s"${iterations} iterations of ${TransferReverse(Random.shuffle(accounts)).toString}")
-  val transferRev =
-    Source(1 to iterations).map(_ => TransferReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  logger.info(s"${iterations} iterations of ${AuthCaptureRoundTrip(Random.shuffle(accounts)).toString}")
-  val authCap =
-    Source(1 to iterations).map(_ => AuthCaptureRoundTrip(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  //  logger.info(s"${iterations} iterations of ${AuthCaptureReverse(Random.shuffle(accounts)).toString}")
-  //  val authCapRev = Source(1 to iterations).map(_ => AuthCaptureReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  logger.info(s"${iterations} iterations of ${AuthPartialCaptureRoundTrip(Random.shuffle(accounts)).toString}")
-  val authPcap = Source(1 to iterations)
-    .map(_ => AuthPartialCaptureRoundTrip(Random.shuffle(accounts)).generate())
-    .mapConcat(identity)
-  //  logger.info(s"${iterations} iterations of ${AuthPartialCaptureReverse(Random.shuffle(accounts)).toString}")
-  //  val authPcapRev = Source(1 to iterations).map(_ => AuthPartialCaptureReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
-  logger.info(s"${iterations} iterations of ${AuthReverse(Random.shuffle(accounts)).toString}")
-  val authRev = Source(1 to iterations).map(_ => AuthReverse(Random.shuffle(accounts)).generate()).mapConcat(identity)
-
-  var capturables = Set[String]()
   val startTime = OffsetDateTime.now()
+//  val immedateSendCount = captures.size + reversals.size
+//  val toFollowSendCount = reversibles.size + auths.size
+  val routes: mutable.Map[String, ActorRef[EntryResult]] = mutable.Map()
   logger.info(s"Sending requests. This may take a while...")
-  val merged: (Map[String, Int], Int) = Await.result(
-    Source
-      .combine(
-        transfer,
-        transferRev,
-        authCap,
-        //      authCapRev,
-        authPcap,
-        //      authPcapRev,
-        authRev
-      )(Merge(_))
-      .log("REQUESTS")
-      .filter(p =>
-        p.operation match {
-          case Operation.Capture(value) => {
-            capturables += value.entryId
-            false
-          }
-          case _ => true
-        }
+  val q: SourceQueue[((String, ActorRef[EntryResult]), EntryRequest)] = Source
+    .queue[((String, ActorRef[EntryResult]), EntryRequest)](1000, OverflowStrategy.backpressure)
+    .log("REQUESTS")
+    .map(result => {
+      routes.addOne(result._1)
+      val op = result._2.operation match {
+        case s @ Operation.Simple(value)    => s.copy(value.copy(entryId = result._1._1))
+        case a @ Operation.Authorize(value) => a.copy(value.copy(entryId = result._1._1))
+        case r @ Operation.Reverse(value)   => r.copy(value.copy(entryId = result._1._1))
+        case c @ Operation.Capture(value)   => c.copy(value.copy(entryId = result._1._1))
+        case _                              => throw new IllegalArgumentException()
+      }
+      (result._1, EntryRequest(op))
+    })
+    .map(result =>
+      new ProducerRecord(
+        "openledger_incoming",
+        result._2.operation match {
+          case Operation.Simple(value)    => value.entryId
+          case Operation.Authorize(value) => value.entryId
+          case Operation.Reverse(value)   => value.entryId
+          case Operation.Capture(value)   => value.entryId
+          case _                          => throw new IllegalArgumentException()
+        },
+        result._2.toByteArray
       )
-      .map(result =>
-        ProducerMessage.single(
-          new ProducerRecord(
-            "openledger_incoming",
-            result.operation match {
-              case Operation.Simple(value)    => value.entryId
-              case Operation.Authorize(value) => value.entryId
-              case Operation.Reverse(value)   => value.entryId
-              case _                          => throw new IllegalArgumentException()
-            },
-            result.toByteArray
-          )
-        )
+    )
+    .toMat(
+      Producer.plainSink(
+        producerSettings
       )
-      .via(
-        Producer.flexiFlow(
-          ProducerSettings(
-            config = system.settings.config.getConfig("akka.kafka.producer"),
-            keySerializer = new StringSerializer,
-            valueSerializer = new ByteArraySerializer
-          ).withBootstrapServers(kafkaBootstraps)
-        )
+    )(Keep.left)
+    .run()
+
+  val p = Promise[Map[String, Int]]()
+  val ref: ActorRef[MonitorOperation] = Await.result(
+    system.ask((replyTo: ActorRef[ActorRef[MonitorOperation]]) =>
+      SpawnProtocol.Spawn(
+        Monitor(p),
+        name = "Monitor",
+        props = Props.empty,
+        replyTo
       )
-      .map(_ => 1)
-      .toMat(Sink.fold[Int, Int](0)(_ + _))(Keep.right)
-      .run()
-      .flatMap(x => {
-        val n = x + accounts.size + capturables.size
-        logger.info(s"Sent $n messages; waiting for responses. This may take a while...")
-        Consumer
-          .plainSource(
-            ConsumerSettings(
-              config = system.settings.config.getConfig("akka.kafka.consumer"),
-              keyDeserializer = new StringDeserializer,
-              valueDeserializer = new ByteArrayDeserializer
-            ).withBootstrapServers(kafkaBootstraps)
-              .withGroupId("simulator")
-              .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
-              .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"),
-            Subscriptions.topics("openledger_outgoing")
-          )
-          .log(s"$n RESPONSES")
-          .take(n)
-          .map(consumerRecord => {
-            val result = EntryResult.parseFrom(consumerRecord.value())
-            if (result.status == "REJECTED" || result.status == "FAILED" || result.status == "THROTTLED") {
-              logger.error(s"${result.entryId} problem: ${result.code}")
-            }
-            if (capturables.contains(result.entryId)) {
-              capturables -= result.entryId
-              Source(
-                Seq(
-                  new ProducerRecord(
-                    "openledger_incoming",
-                    result.entryId,
-                    EntryRequest(
-                      Operation.Capture(
-                        Capture(entryId = result.entryId, amountToCapture = 1)
-                      )
-                    ).toByteArray
-                  )
-                )
-              ).runWith(
-                Producer.plainSink(
-                  ProducerSettings(
-                    config = system.settings.config.getConfig("akka.kafka.producer"),
-                    keySerializer = new StringSerializer,
-                    valueSerializer = new ByteArraySerializer
-                  ).withBootstrapServers(kafkaBootstraps)
-                )
-              )
-            }
-            result.status
-          })
-          .groupBy(10, identity)
-          .map(_ -> 1)
-          .reduce((l, r) => (l._1, l._2 + r._2))
-          .mergeSubstreams
-          .runWith(Sink.collection[(String, Int), Map[String, Int]])
-          .map(r => (r, n))
-      }),
-    24.hours
+    )(10.seconds, scheduler),
+    20.seconds
   )
+
+  Consumer
+    .plainSource(
+      consumerSettings,
+      Subscriptions.topics("openledger_outgoing")
+    )
+    .log("RESPONSES")
+    .map(consumerRecord => {
+      val result = EntryResult.parseFrom(consumerRecord.value())
+      if (routes.contains(result.entryId)) {
+        routes(result.entryId) ! result
+      }
+      result.status
+    })
+    .runWith(Sink.ignore)
+
+  val acr = AuthCaptureReverse(accounts, q, iterations)
+  logger.info(acr.toString)
+  ref ! SpawnCases(acr.generate(ref))
+
+  val ac = AuthCaptureRoundTrip(accounts, q, iterations)
+  logger.info(ac.toString)
+  ref ! SpawnCases(ac.generate(ref))
+
+  val ar = AuthReverse(accounts, q, iterations)
+  logger.info(ar.toString)
+  ref ! SpawnCases(ar.generate(ref))
+
+  val tr = TransferReverse(accounts, q, iterations)
+  logger.info(tr.toString)
+  ref ! SpawnCases(tr.generate(ref))
+
+  val t = TransferRoundTrip(accounts, q, iterations)
+  logger.info(t.toString)
+  ref ! SpawnCases(t.generate(ref))
+
+  logger.info(
+    s"Waiting for responses. This may take a while..."
+  )
+  val replyCounts = Await.result(p.future, 24.hours)
 
   logger.info(s"Asserting ${accounts.size} accounts")
   val endTime = OffsetDateTime.now()
@@ -234,12 +229,31 @@ object Application extends App with JsonSupport {
         })
     )
     .map(f => Await.result(f, 10.seconds))
-  logger.info(s"DONE: ${merged._2} entries")
+  val operations = replyCounts.values.sum
+  logger.info(s"DONE: ${operations} operations")
   logger.info(s"Start: $startTime")
   logger.info(s"End: $endTime")
   logger.info(s"Elapsed: ${startTime.until(endTime, ChronoUnit.SECONDS)} seconds")
-  logger.info(s"Effective TPS: ${merged._2 / startTime.until(endTime, ChronoUnit.SECONDS)} operation per second")
-  logger.info(merged._1.toString())
+  logger.info(
+    s"Effective TPS: ${(operations) / startTime.until(endTime, ChronoUnit.SECONDS)} operation per second"
+  )
+  logger.info(replyCounts.toString())
 
   system.terminate()
+
+  private def send(r: EntryRequest, entryId: String): Future[Done] = {
+    Source(
+      Seq(
+        new ProducerRecord(
+          "openledger_incoming",
+          entryId,
+          r.toByteArray
+        )
+      )
+    ).runWith(
+      Producer.plainSink(
+        producerSettings
+      )
+    )
+  }
 }
