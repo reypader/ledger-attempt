@@ -16,16 +16,16 @@ import javax.sql.DataSource
 
 object AccountProjection {
   def apply(
-      datasource: DataSource,
+      dataSource: DataSource,
       accountInfoRepository: AccountInfoRepository,
       accountStatementRepository: AccountStatementRepository,
       accountOverdraftRepository: AccountOverdraftRepository
   )(implicit system: ActorSystem[_]) =
-    new AccountProjection(datasource, accountInfoRepository, accountStatementRepository, accountOverdraftRepository)
+    new AccountProjection(dataSource, accountInfoRepository, accountStatementRepository, accountOverdraftRepository)
 }
 
 class AccountProjection(
-    datasource: DataSource,
+    dataSource: DataSource,
     accountInfoRepository: AccountInfoRepository,
     accountStatementRepository: AccountStatementRepository,
     accountOverdraftRepository: AccountOverdraftRepository
@@ -40,7 +40,7 @@ class AccountProjection(
       .exactlyOnce(
         projectionId = ProjectionId("Account", tag),
         sourceProvider = sourceProvider(tag),
-        sessionFactory = () => new PlainJdbcSession(datasource),
+        sessionFactory = () => new PlainJdbcSession(dataSource),
         handler =
           () => AccountProjectionHandler(accountInfoRepository, accountStatementRepository, accountOverdraftRepository)
       )
