@@ -159,7 +159,7 @@ object Application extends App with JsonSupport {
     )(Keep.left)
     .run()
 
-  val p = Promise[Map[String, Int]]()
+  val p = Promise[Map[String, Seq[Long]]]()
   val ref: ActorRef[MonitorOperation] = Await.result(
     system.ask((replyTo: ActorRef[ActorRef[MonitorOperation]]) =>
       SpawnProtocol.Spawn(
@@ -210,7 +210,7 @@ object Application extends App with JsonSupport {
   logger.info(
     s"Waiting for responses. This may take a while..."
   )
-  val replyCounts = Await.result(p.future, 24.hours)
+  val latencies = Await.result(p.future, 24.hours)
 
   logger.info(s"Asserting ${accounts.size} accounts")
   val endTime = OffsetDateTime.now()
@@ -229,6 +229,11 @@ object Application extends App with JsonSupport {
         })
     )
     .map(f => Await.result(f, 10.seconds))
+  var replyCounts = Map.empty[String, Int]
+  latencies.foreach { l =>
+    logger.info(s"Average Latency: ${l._1} -- ${l._2.sum / l._2.size} milliseconds")
+    replyCounts = replyCounts + (l._1 -> l._2.size)
+  }
   val operations = replyCounts.values.sum
   logger.info(s"DONE: ${operations} operations")
   logger.info(s"Start: $startTime")

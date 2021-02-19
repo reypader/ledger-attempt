@@ -10,7 +10,7 @@ import scala.concurrent.Promise
 object Monitor {
 
   def apply(
-      handle: Promise[Map[String, Int]],
+      handle: Promise[Map[String, Seq[Long]]],
       watched: Set[String] = Set.empty,
       latencies: Map[String, Seq[Long]] = Map.empty
   ): Behavior[MonitorOperation] =
@@ -41,12 +41,8 @@ object Monitor {
             if (newWatched.nonEmpty) {
               apply(handle, newWatched, latencies)
             } else {
-              var counts = Map.empty[String, Int]
-              latencies.foreach { l =>
-                context.log.info(s"Average Latency: ${l._1} -- ${l._2.sum / l._2.size} milliseconds")
-                counts = counts + (l._1 -> l._2.size)
-              }
-              handle.success(counts)
+
+              handle.success(latencies)
               Behaviors.stopped
             }
           }
