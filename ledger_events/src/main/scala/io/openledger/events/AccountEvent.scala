@@ -70,3 +70,5 @@ final case class DebitReleased(
 final case class Overdrawn(entryId: String, entryCode: String, timestamp: OffsetDateTime) extends AccountingEvent
 
 final case class Overpaid(entryId: String, entryCode: String, timestamp: OffsetDateTime) extends AccountingEvent
+
+final case class AccountPassivated() extends AccountEvent

@@ -8,7 +8,7 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.AccountingMode.AccountMode
 import io.openledger.DateUtils.TimeGen
 import io.openledger.domain.account.states.{AccountState, Ready}
-import io.openledger.events.AccountEvent
+import io.openledger.events.{AccountEvent, AccountPassivated}
 import io.openledger.{LedgerError, LedgerSerializable}
 
 import java.time.OffsetDateTime
@@ -29,6 +29,7 @@ object Account {
             .orElse[AccountCommand, Effect[AccountEvent, AccountState]] {
               case Get(replyTo)  => Effect.none.thenReply(replyTo)(s => s)
               case Ping(replyTo) => Effect.none.thenReply(replyTo)(_ => Ack)
+              case Passivate     => Effect.persist(AccountPassivated()).thenStop()
               case c: AccountingCommand =>
                 actorContext.log.warn(s"Unhandled command $cmd")
                 Effect.none.thenRun { _ =>
@@ -55,7 +56,12 @@ object Account {
               state
             }(evt)
         }
-      ).withTagger(_ => Set(AccountEvent.tagDistribution.assignTag(accountId)))
+      )
+        .snapshotWhen {
+          case (_, AccountPassivated(), _) => true
+          case _                           => false
+        }
+        .withTagger(_ => Set(AccountEvent.tagDistribution.assignTag(accountId)))
     }
 
   sealed trait AccountCommand extends LedgerSerializable
@@ -71,6 +77,8 @@ object Account {
   trait AccAck
 
   final case object Ack extends AccAck
+
+  final case object Passivate extends AccountCommand
 
   final case class Ping(replyTo: ActorRef[AccAck]) extends AccountCommand
 

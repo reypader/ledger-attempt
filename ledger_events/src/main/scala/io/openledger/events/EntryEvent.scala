@@ -52,3 +52,4 @@ final case class DebitAdjustmentFailed(code: String) extends EntryEvent
 final case class Resumed() extends EntryEvent
 final case class Suspended(timestamp: OffsetDateTime) extends EntryEvent
 final case class Done(timestamp: OffsetDateTime) extends EntryEvent
+final case class EntryPassivated() extends EntryEvent

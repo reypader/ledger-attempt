@@ -51,13 +51,13 @@ object Application extends App {
     sharding.init(
       Entity(AccountTypeKey)(createBehavior =
         entityContext => Account(entityContext.entityId)(entryMessenger, () => DateUtils.now())
-      )
+      ).withStopMessage(Account.Passivate)
     )
   val entryShardRegion: ActorRef[ShardingEnvelope[Entry.EntryCommand]] =
     sharding.init(
       Entity(EntryTypeKey)(createBehavior =
         entityContext => Entry(entityContext.entityId)(accountMessenger, resultMessenger)
-      )
+      ).withStopMessage(Entry.Passivate)
     )
   val producerSettings = KafkaProducerSetup.KafkaProducerSettings(
     topic = system.settings.config.getString("ledger-settings.kafka.outgoing.topic"),

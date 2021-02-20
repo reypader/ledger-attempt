@@ -6,8 +6,8 @@ import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.persistence.typed.PersistenceId
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import io.openledger.AccountingMode.AccountMode
-import io.openledger.domain.account.Account.AccountingCommand
-import io.openledger.domain.entry.states.{Ready, EntryState}
+import io.openledger.domain.account.Account.{AccountCommand, AccountingCommand}
+import io.openledger.domain.entry.states.{EntryState, Ready}
 import io.openledger.events._
 import io.openledger.{LedgerError, LedgerSerializable, ResultingBalance}
 
@@ -38,6 +38,7 @@ object Entry {
                     resultMessenger(CommandRejected(entryId, LedgerError.UNSUPPORTED_ENTRY_OPERATION_ON_CURRENT_STATE))
                     ackable.replyTo ! Nack
                   }
+              case Passivate => Effect.persist(EntryPassivated()).thenStop()
               case _ =>
                 actorContext.log.warn(s"Unhandled command $cmd")
                 Effect.none
@@ -52,7 +53,12 @@ object Entry {
               state
             }(evt)
         }
-      ).withTagger(_ => Set(EntryEvent.tagDistribution.assignTag(entryId)))
+      )
+        .snapshotWhen {
+          case (_, EntryPassivated(), _) => true
+          case _                         => false
+        }
+        .withTagger(_ => Set(EntryEvent.tagDistribution.assignTag(entryId)))
     }
 
   sealed trait EntryResult extends LedgerSerializable {
@@ -68,6 +74,8 @@ object Entry {
   }
 
   sealed trait EntryCommand extends LedgerSerializable
+
+  final case object Passivate extends EntryCommand
 
   sealed trait TxnAck
 
