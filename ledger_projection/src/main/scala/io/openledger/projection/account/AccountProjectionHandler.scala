@@ -63,6 +63,8 @@ class AccountProjectionHandler(
             Overdraft(entryId, entryCode, OVERPAID, accountId, timestamp)
           )
 
+        //TODO: Can (should we?) the following get-then-save patterns be optimized into a single-sql?
+        //      Network demand (multiple back and forth) vs DB instance demand (more complex query)?
         case Debited(entryId, entryCode, amount, newAvailableBalance, newCurrentBalance, timestamp) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
@@ -79,6 +81,8 @@ class AccountProjectionHandler(
               timestamp
             )
           )
+        //TODO: Can (should we?) the following get-then-save patterns be optimized into a single-sql?
+        //      Network demand (multiple back and forth) vs DB instance demand (more complex query)?
         case Credited(entryId, entryCode, amount, newAvailableBalance, newCurrentBalance, timestamp) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
@@ -95,6 +99,8 @@ class AccountProjectionHandler(
               timestamp
             )
           )
+        //TODO: Can (should we?) the following get-then-save patterns be optimized into a single-sql?
+        //      Network demand (multiple back and forth) vs DB instance demand (more complex query)?
         case DebitAuthorized(entryId, entryCode, amount, newAvailableBalance, _, timestamp) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(
@@ -108,6 +114,8 @@ class AccountProjectionHandler(
               timestamp
             )
           )
+        //TODO: Can (should we?) the following get-then-save patterns be optimized into a single-sql?
+        //      Network demand (multiple back and forth) vs DB instance demand (more complex query)?
         case DebitCaptured(
               entryId,
               entryCode,
@@ -134,6 +142,8 @@ class AccountProjectionHandler(
               timestamp
             )
           )
+        //TODO: Can (should we?) the following get-then-save patterns be optimized into a single-sql?
+        //      Network demand (multiple back and forth) vs DB instance demand (more complex query)?
         case DebitReleased(entryId, entryCode, amountReturned, newAvailableBalance, _, timestamp) =>
           val info = accountInfoRepository.get(accountId)
           accountStatementRepository.save(

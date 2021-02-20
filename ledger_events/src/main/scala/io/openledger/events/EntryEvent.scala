@@ -41,7 +41,7 @@ final case class DebitAdjustmentDone(creditedAccountResultingBalance: ResultingB
 
 final case class ReversalRequested(timestamp: OffsetDateTime) extends EntryEvent
 
-final case class CaptureRequested(captureAmount: BigDecimal) extends EntryEvent
+final case class CaptureRequested(captureAmount: BigDecimal, timestamp: OffsetDateTime) extends EntryEvent
 
 final case class DebitCaptureFailed(code: String) extends EntryEvent
 

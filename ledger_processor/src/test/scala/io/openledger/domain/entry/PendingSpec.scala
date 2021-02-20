@@ -42,9 +42,8 @@ class PendingSpec extends AbstractEntrySpecBase {
 
         val captureResult = eventSourcedTestKit.runCommand(Capture(expectedCaptureAmount, ackProbe.ref))
         ackProbe.expectMessageType[TxnAck] shouldBe Ack
-        captureResult.events shouldBe Seq(CaptureRequested(expectedCaptureAmount))
         captureResult.events.size shouldBe 1
-        inside(captureResult.events.head) { case CaptureRequested(captureAmount) =>
+        inside(captureResult.events.head) { case CaptureRequested(captureAmount, _) =>
           captureAmount shouldBe expectedCaptureAmount
         }
 

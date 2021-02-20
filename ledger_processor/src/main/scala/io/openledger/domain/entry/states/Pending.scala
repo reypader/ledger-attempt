@@ -22,7 +22,7 @@ case class Pending(
   override def handleEvent(
       event: EntryEvent
   )(implicit context: ActorContext[EntryCommand]): PartialFunction[EntryEvent, EntryState] = {
-    case CaptureRequested(captureAmount) =>
+    case CaptureRequested(captureAmount, _) =>
       Crediting(
         entryCode,
         entryId,
@@ -46,7 +46,7 @@ case class Pending(
   ): PartialFunction[EntryCommand, Effect[EntryEvent, EntryState]] = {
     case Capture(captureAmount, replyTo) if captureAmount <= amountAuthorized =>
       Effect
-        .persist(CaptureRequested(captureAmount))
+        .persist(CaptureRequested(captureAmount, DateUtils.now()))
         .thenRun { next: EntryState =>
           next.proceed()
           replyTo ! Ack

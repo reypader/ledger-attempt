@@ -10,12 +10,14 @@ import io.openledger.projection.account.AccountInfoRepository.AccountInfo
 import io.openledger.projection.account.AccountOverdraftRepository.Overdraft
 import io.openledger.projection.account.AccountOverdraftRepository.OverdraftType.{OVERDRAWN, OVERPAID}
 import io.openledger.projection.account.AccountStatementRepository.{AvailableMovement, EntryType, FullMovement}
+import io.openledger.projection.entry.FloatingEntryRepository.{EntryState, FloatingEntry, UpdatedEntry}
 
 object EntryProjectionHandler {
-  def apply() = new EntryProjectionHandler()
+  def apply(floatingEntryRepository: FloatingEntryRepository) = new EntryProjectionHandler(floatingEntryRepository)
 }
 
 class EntryProjectionHandler(
+    floatingEntryRepository: FloatingEntryRepository
 ) extends JdbcHandler[EventEnvelope[EntryEvent], PlainJdbcSession] {
 
   private val separator: Char = '|'
@@ -29,8 +31,8 @@ class EntryProjectionHandler(
         case Started(entryCode, accountToDebit, accountToCredit, amount, authOnly, timestamp) =>
         //insert into floating simple/auth-only
         //insert into stats
-        case CaptureRequested(captureAmount) =>
         //insert into floating capture
+        case CaptureRequested(captureAmount, timestamp) =>
         //insert into stats
         case ReversalRequested(timestamp) =>
         //insert/update floating reversal in case of premature reversal
