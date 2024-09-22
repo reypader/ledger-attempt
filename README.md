@@ -1,4 +1,5 @@
-# OpenLedger
+# Ledger Attempt
+My attempt to build a ledger using Akka to test my knowledge on both the domain and the framework.
 
 ## How to build
 
